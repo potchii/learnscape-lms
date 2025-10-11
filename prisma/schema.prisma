@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Define the UserRole enum based on your project's roles
+enum UserRole {
+  APPLICANT
+  STUDENT
+  PARENT
+  TEACHER
+  ADMIN
+}
+
+model User {
+  // Primary Key
+  id Int @id @default(autoincrement()) @map("userID")
+
+  // Authentication & Access
+  userName     String   @unique @map("userName")
+  passwordHash String   @map("password_hash")
+  // Maps your 'accessLevel' (int) to our UserRole (enum)
+  role         UserRole @map("accessLevel")
+
+  // Personal Information
+  lastName    String    @map("lastName")
+  middleName  String?   @map("middleName") // Made optional as middle names aren't always required
+  firstName   String    @map("firstName")
+  email       String    @unique @map("email")
+  phoneNumber String?   @map("phoneNumber") // Made optional
+  gender      String?   @map("gender")
+  birthdate   DateTime? @map("birthdate") // Prisma uses DateTime for SQL DATE type
+  address     String?   @map("address")
+  userStatus  String    @map("user_status") // e.g., 'Active', 'Inactive', 'Suspended'
+
+  // Relationships (Simplified for this single model)
+  classroomId Int?
+
+  // Custom Table/Field Mapping (Ensures your column names match the image)
+  @@map("user")
+}
