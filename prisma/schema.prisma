@@ -1,22 +1,20 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// LearnScape - Production Prisma Schema
+// PostgreSQL + Prisma + Next.js + Supabase compatible
 
 generator client {
   provider = "prisma-client-js"
-  //output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-// Define the UserRole enum based on your project's roles
-enum UserRole {
+// ------------------------------------
+// ENUMS
+// ------------------------------------
+
+enum Role {
   APPLICANT
   STUDENT
   PARENT
@@ -24,30 +22,184 @@ enum UserRole {
   ADMIN
 }
 
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+// ------------------------------------
+// CORE USER MODEL
+// ------------------------------------
+
 model User {
-  // Primary Key
-  id Int @id @default(autoincrement()) @map("userID")
-
-  // Authentication & Access
-  userName     String   @unique @map("userName")
+  id           String   @id @default(cuid())
+  email        String   @unique
   passwordHash String   @map("password_hash")
-  // Maps your 'accessLevel' (int) to our UserRole (enum)
-  role         UserRole @map("accessLevel")
+  firstName    String   @map("first_name")
+  middleName   String?  @map("middle_name")
+  lastName     String   @map("last_name")
+  gender       Gender
+  birthdate    DateTime
+  address      String
+  phoneNumber  String?  @map("phone_number")
+  role         Role
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-  // Personal Information
-  lastName    String    @map("lastName")
-  middleName  String?   @map("middleName") // Made optional as middle names aren't always required
-  firstName   String    @map("firstName")
-  email       String    @unique @map("email")
-  phoneNumber String?   @map("phoneNumber") // Made optional
-  gender      String?   @map("gender")
-  birthdate   DateTime? @map("birthdate") // Prisma uses DateTime for SQL DATE type
-  address     String?   @map("address")
-  userStatus  String    @map("user_status") // e.g., 'Active', 'Inactive', 'Suspended'
+  applicant Applicant?
+  parent    Parent?
+  student   Student?
+  teacher   Teacher?
+  admin     Admin?
 
-  // Relationships (Simplified for this single model)
-  classroomId Int?
+  messagesSent     Message[] @relation("MessagesSent")
+  messagesReceived Message[] @relation("MessagesReceived")
+}
 
-  // Custom Table/Field Mapping (Ensures your column names match the image)
-  @@map("user")
+// ------------------------------------
+// ROLE TABLES
+// ------------------------------------
+
+model Applicant {
+  id            String   @id @default(cuid())
+  userId        String   @unique @map("user_id")
+  status        String
+  referenceCode String   @unique @map("reference_code")
+  personalInfo  String?  @map("personal_info")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Parent {
+  id     String @id @default(cuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  students Student[]
+  alerts   Alert[]
+}
+
+model Section {
+  id         String    @id @default(cuid())
+  gradeLevel Int       @map("grade_level")
+  name       String
+  students   Student[]
+  classes    Class[]
+}
+
+model Student {
+  id        String @id @default(cuid())
+  userId    String @unique @map("user_id")
+  parentId  String @map("parent_id")
+  sectionId String @map("section_id")
+
+  user    User    @relation(fields: [userId], references: [id])
+  parent  Parent  @relation(fields: [parentId], references: [id])
+  section Section @relation(fields: [sectionId], references: [id])
+
+  attendance Attendance[]
+  grades     Grade[]
+}
+
+model Teacher {
+  id     String @id @default(cuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  classes    Class[]
+  attendance Attendance[]
+  grades     Grade[]
+}
+
+model Admin {
+  id     String @id @default(cuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+// ------------------------------------
+// ACADEMIC STRUCTURE
+// ------------------------------------
+
+model Class {
+  id          String  @id @default(cuid())
+  subjectName String  @map("subject_name")
+  sectionId   String  @map("section_id")
+  teacherId   String  @map("teacher_id")
+  schedule    String?
+
+  section    Section      @relation(fields: [sectionId], references: [id])
+  teacher    Teacher      @relation(fields: [teacherId], references: [id])
+  attendance Attendance[]
+  grades     Grade[]
+}
+
+// ------------------------------------
+// ATTENDANCE
+// ------------------------------------
+
+model Attendance {
+  id        String           @id @default(cuid())
+  studentId String           @map("student_id")
+  classId   String           @map("class_id")
+  teacherId String           @map("teacher_id")
+  date      DateTime
+  status    AttendanceStatus
+  remarks   String?
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  student Student @relation(fields: [studentId], references: [id])
+  class   Class   @relation(fields: [classId], references: [id])
+  teacher Teacher @relation(fields: [teacherId], references: [id])
+}
+
+// ------------------------------------
+// GRADES
+// ------------------------------------
+
+model Grade {
+  id        String   @id @default(cuid())
+  studentId String   @map("student_id")
+  classId   String   @map("class_id")
+  teacherId String   @map("teacher_id")
+  score     Float
+  remarks   String?
+  gradedAt  DateTime @default(now()) @map("graded_at")
+
+  student Student @relation(fields: [studentId], references: [id])
+  class   Class   @relation(fields: [classId], references: [id])
+  teacher Teacher @relation(fields: [teacherId], references: [id])
+}
+
+// ------------------------------------
+// ALERTS & MESSAGES
+// ------------------------------------
+
+model Alert {
+  id        String   @id @default(cuid())
+  parentId  String   @map("parent_id")
+  message   String
+  createdAt DateTime @default(now()) @map("created_at")
+  viewed    Boolean  @default(false)
+
+  parent Parent @relation(fields: [parentId], references: [id])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  senderId   String   @map("sender_id")
+  receiverId String   @map("receiver_id")
+  content    String
+  sentAt     DateTime @default(now()) @map("sent_at")
+
+  sender   User @relation("MessagesSent", fields: [senderId], references: [id])
+  receiver User @relation("MessagesReceived", fields: [receiverId], references: [id])
 }
