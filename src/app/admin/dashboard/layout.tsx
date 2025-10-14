@@ -1,20 +1,13 @@
 // src/app/admin/dashboard/layout.tsx
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist } from "next/font/google";
+import AdminNav from "@/components/AdminNav";
 
-const geistSans = Geist({
-    variable: "--font-geist-sans",
-    subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-    variable: "--font-geist-mono",
-    subsets: ["latin"],
-});
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 
 export const metadata: Metadata = {
     title: "Admin Dashboard | LearnScape",
-    description: "Administrative interface for LearnScape system",
+    description: "Administrative interface for managing users and roles",
 };
 
 export default function AdminDashboardLayout({
@@ -23,8 +16,12 @@ export default function AdminDashboardLayout({
     children: React.ReactNode;
 }) {
     return (
-        <div className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
-            {children}
+        <div className={`${geist.variable} font-sans min-h-screen bg-gray-50`}>
+            {/* client-side nav */}
+            <AdminNav />
+
+            {/* Page content */}
+            <main className="p-10">{children}</main>
         </div>
     );
 }
