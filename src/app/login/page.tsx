@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoginSchema, LoginInput } from "@/lib/validators";
-import { signIn, getSession } from "next-auth/react";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 const LoginPage = () => {
@@ -30,15 +30,17 @@ const LoginPage = () => {
             return;
         }
 
-        const session = await getSession();
+        const res = await fetch("api/auth/session");
+        const session = await res.json();
         const role = (session as any)?.user?.role;
 
         switch (role) {
-            case "ADMIN": router.push("/admin"); break;
-            case "TEACHER": router.push("/teacher"); break;
-            case "PARENT": router.push("/parent"); break;
-            case "STUDENT": router.push("/student"); break;
-            default: router.push("/dashboard"); break;
+            case "ADMIN": router.push("/admin/dashboard"); break;
+            case "TEACHER": router.push("/teacher/dashboard"); break;
+            case "PARENT": router.push("/parent/dashboard"); break;
+            case "STUDENT": router.push("/student/dashboard"); break;
+            case "APPLICANT": router.push("/applicant/portal"); break;
+            default: router.push("/unauthorized"); break;
         }
     };
 

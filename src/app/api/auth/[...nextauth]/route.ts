@@ -1,73 +1,69 @@
-// /app/api/auth/[...nextauth]/route.ts
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import bcrypt from "bcrypt";
-import { prisma } from "@/lib/prisma";
-import { NextAuthOptions } from "next-auth";
+import { prisma } from "@/lib/prisma"; // ✅ FIXED — use named import
 
-export const authOptions: NextAuthOptions = {
-    adapter: PrismaAdapter(prisma),
-    providers: [
-        CredentialsProvider({
-            id: "credentials",
-            name: "Credentials",
-            credentials: {
-                email: { label: "Email", type: "text", placeholder: "name@example.com" },
-                password: { label: "Password", type: "password" },
-            },
-            async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password) return null;
+export const authOptions = {
+  adapter: PrismaAdapter(prisma),
 
-                // find user by email
-                const user = await prisma.user.findUnique({
-                    where: { email: credentials.email },
-                });
-                if (!user) return null;
+  providers: [
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "text", placeholder: "name@example.com" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials: any) {
+        if (!credentials?.email || !credentials.password) return null;
 
-                // verify password (passwordHash stored in db)
-                const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
-                if (!isValid) return null;
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
+        if (!user) return null;
 
-                // You may want to reject users not yet accepted (applicants) depending on role:
-                // if (user.role === 'APPLICANT') return null;
+        const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
+        if (!isValid) return null;
 
-                // Return minimal user object for session (Prisma adapter also creates records)
-                return { id: user.id, email: user.email, name: `${user.firstName} ${user.lastName}`, role: user.role };
-            },
-        }),
-    ],
-    callbacks: {
-        async jwt({ token, user }) {
-            // When user signs in, inject id and role into token
-            if (user) {
-                // user originates from authorize() or adapter
-                // user.role might be undefined when adapter used—fetch from DB fallback
-                token.id = (user as any).id ?? token.id;
-                token.role = (user as any).role ?? token.role;
-            }
-            return token;
-        },
+        return {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+        };
+      },
+    }),
+  ],
 
-        async session({ session, token }) {
-            // expose user id and role to client session
-            if (token) {
-                (session as any).user = {
-                    ...(session.user ?? {}),
-                    id: token.id,
-                    role: token.role,
-                };
-            }
-            return session;
-        },
+  session: { strategy: "jwt" },
+
+  callbacks: {
+    async jwt({ token, user }: any) {
+      if (user) {
+        token.id = user.id;
+        token.email = user.email;
+        token.firstName = user.firstName;
+        token.lastName = user.lastName;
+        token.role = user.role;
+      }
+      return token;
     },
-    session: {
-        strategy: "jwt",
+
+    async session({ session, token }: any) {
+      if (token && session.user) {
+        session.user.id = token.id as string;
+        session.user.email = token.email as string;
+        session.user.firstName = token.firstName as string;
+        session.user.lastName = token.lastName as string;
+        session.user.role = token.role as string;
+      }
+      return session;
     },
-    secret: process.env.NEXTAUTH_SECRET,
-    pages: {
-        signIn: "/login" // optional: custom sign-in page
-    },
+  },
+
+  secret: process.env.NEXTAUTH_SECRET,
+  pages: { signIn: "/login" },
 };
 
 const handler = NextAuth(authOptions);
