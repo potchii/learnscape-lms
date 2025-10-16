@@ -12,7 +12,20 @@ export async function GET(
         const student = await prisma.student.findUnique({
             where: { id: params.id },
             include: {
-                user: true,
+                user: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        middleName: true,
+                        lastName: true,
+                        email: true,
+                        gender: true,
+                        birthdate: true,
+                        address: true,
+                        phoneNumber: true,
+                        createdAt: true,
+                    },
+                },
                 parent: {
                     include: {
                         user: {
@@ -25,7 +38,13 @@ export async function GET(
                         },
                     },
                 },
-                section: true,
+                section: {
+                    select: {
+                        id: true,
+                        name: true,
+                        gradeLevel: true,
+                    },
+                },
                 attendance: {
                     include: {
                         class: {
@@ -123,8 +142,25 @@ export async function PUT(
                     parentId,
                 },
                 include: {
-                    user: true,
-                    section: true,
+                    user: {
+                        select: {
+                            firstName: true,
+                            middleName: true,
+                            lastName: true,
+                            email: true,
+                            gender: true,
+                            birthdate: true,
+                            address: true,
+                            phoneNumber: true,
+                        },
+                    },
+                    section: {
+                        select: {
+                            id: true,
+                            name: true,
+                            gradeLevel: true,
+                        },
+                    },
                     parent: {
                         include: {
                             user: {
