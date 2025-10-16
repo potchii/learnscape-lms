@@ -63,7 +63,11 @@ export async function POST(req: Request) {
         }, { status: 201 });
 
     } catch (err) {
-        console.error("Signup error:", err);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        console.error("Signup error details:", err);
+        console.error("Error stack:", err instanceof Error ? err.stack : 'No stack');
+        return NextResponse.json({
+            error: "Internal server error",
+            details: err instanceof Error ? err.message : 'Unknown error'
+        }, { status: 500 });
     }
 }
