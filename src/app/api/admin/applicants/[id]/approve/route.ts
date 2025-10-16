@@ -17,11 +17,15 @@ export async function POST(
             );
         }
 
+        // Generate student ID OUTSIDE the transaction to reduce transaction time
+        const studentNumber = await generateHumanId("STUDENT");
+
         const result = await prisma.$transaction(async (tx) => {
             const applicant = await tx.applicant.findUnique({
                 where: { id: applicantId },
                 include: { user: true },
             });
+
 
             if (!applicant) {
                 throw new Error("Applicant not found");
@@ -37,16 +41,13 @@ export async function POST(
                 data: { role: "STUDENT" },
             });
 
-            // Generate student ID
-            const studentNumber = await generateHumanId("STUDENT");
-
-            // Create Student record
+            // Create Student record (studentNumber already generated)
             const student = await tx.student.create({
                 data: {
                     userId: applicant.userId,
                     parentId: parentId,
                     sectionId: sectionId,
-                    studentNumber: studentNumber,
+                    studentNumber: studentNumber, // Use pre-generated ID
                 },
                 include: {
                     user: true,
@@ -55,16 +56,19 @@ export async function POST(
                 },
             });
 
-            // Update applicant status - FIXED: removed updatedAt since it's auto-handled
+            // Update applicant status
             await tx.applicant.update({
                 where: { id: applicantId },
                 data: {
                     status: "APPROVED",
-                    // updatedAt is automatically handled by @updatedAt in schema
                 },
             });
 
             return { student };
+        }, {
+            // Optional: Add transaction timeout override
+            maxWait: 10000,
+            timeout: 30000,
         });
 
         return NextResponse.json({
