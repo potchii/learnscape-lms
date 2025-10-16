@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
+import { generateHumanId } from "@/lib/idGenerator";
 
 export async function POST(req: Request) {
     try {
@@ -17,8 +18,9 @@ export async function POST(req: Request) {
 
         const passwordHash = await bcrypt.hash(password, 10);
 
-        // Generate unique reference code for the applicant
-        const referenceCode = `APP-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+        // Generate unique reference code and applicant number
+        const referenceCode = `REF-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+        const applicantNumber = await generateHumanId("APPLICANT"); // GENERATE APPLICANT ID
 
         // Use transaction to create both User and Applicant records
         const result = await prisma.$transaction(async (tx) => {
@@ -38,14 +40,15 @@ export async function POST(req: Request) {
                 },
             });
 
-            // 2. Create corresponding Applicant record
+            // 2. Create corresponding Applicant record WITH APPLICANT NUMBER
             const applicant = await tx.applicant.create({
                 data: {
                     userId: user.id,
-                    type: "NEW", // Default to NEW applicant
-                    status: "PENDING", // Default status
+                    type: "NEW",
+                    status: "PENDING",
+                    applicantNumber: applicantNumber, // 👈 STORE GENERATED ID
                     referenceCode: referenceCode,
-                    personalInfo: "Submitted via online registration", // Default info
+                    personalInfo: "Submitted via online registration",
                 },
             });
 
@@ -55,7 +58,8 @@ export async function POST(req: Request) {
         return NextResponse.json({
             success: true,
             message: "Account created successfully",
-            referenceCode: referenceCode // Send back for user reference
+            applicantNumber: applicantNumber, // 👈 RETURN BOTH
+            referenceCode: referenceCode
         }, { status: 201 });
 
     } catch (err) {

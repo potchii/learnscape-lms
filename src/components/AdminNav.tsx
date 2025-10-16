@@ -10,7 +10,7 @@ export default function AdminNav() {
 
     const nav = [
         { label: "Users", href: "/admin/dashboard" },
-        { label: "Applications", href: "/admin/applications" },
+        { label: "Applications", href: "/admin/applicants" },
         { label: "Settings", href: "/admin/settings" },
     ];
 

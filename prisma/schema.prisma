@@ -83,14 +83,15 @@ model User {
 // ------------------------------------
 
 model Applicant {
-  id            String            @id @default(cuid())
-  userId        String            @unique @map("user_id")
-  type          ApplicantType     @default(NEW) // 👈 New field
-  status        ApplicationStatus @default(PENDING)
-  referenceCode String            @unique @map("reference_code")
-  personalInfo  String?           @map("personal_info")
-  createdAt     DateTime          @default(now()) @map("created_at")
-  updatedAt     DateTime          @updatedAt @map("updated_at")
+  id              String            @id @default(cuid())
+  userId          String            @unique @map("user_id")
+  type            ApplicantType     @default(NEW) // 👈 New field
+  status          ApplicationStatus @default(PENDING)
+  applicantNumber String            @unique @map("applicant_number")
+  referenceCode   String            @unique @map("reference_code")
+  personalInfo    String?           @map("personal_info")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id])
 }
