@@ -1,5 +1,5 @@
 // LearnScape - Production Prisma Schema
-// PostgreSQL + Prisma + Next.js + Supabase compatible
+// PostgreSQL + Prisma + Next.js + Supabase
 
 generator client {
   provider = "prisma-client-js"
@@ -32,6 +32,21 @@ enum AttendanceStatus {
   ABSENT
   LATE
   EXCUSED
+}
+
+enum ApplicantType {
+  NEW
+  CONTINUING
+  RETURNEE
+  TRANSFEREE
+}
+
+enum ApplicationStatus {
+  PENDING // Application submitted, awaiting review
+  UNDER_REVIEW // Currently being reviewed by admin
+  APPROVED // Application accepted, student created
+  REJECTED // Application denied
+  WAITLISTED // Application on hold
 }
 
 // ------------------------------------
@@ -68,23 +83,35 @@ model User {
 // ------------------------------------
 
 model Applicant {
-  id            String   @id @default(cuid())
-  userId        String   @unique @map("user_id")
-  status        String
-  referenceCode String   @unique @map("reference_code")
-  personalInfo  String?  @map("personal_info")
-  createdAt     DateTime @default(now()) @map("created_at")
+  id            String            @id @default(cuid())
+  userId        String            @unique @map("user_id")
+  type          ApplicantType     @default(NEW) // 👈 New field
+  status        ApplicationStatus @default(PENDING)
+  referenceCode String            @unique @map("reference_code")
+  personalInfo  String?           @map("personal_info")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id])
 }
 
-model Parent {
-  id     String @id @default(cuid())
-  userId String @unique @map("user_id")
-  user   User   @relation(fields: [userId], references: [id])
+model IdCounter {
+  id         String   @id @default(cuid())
+  type       String // e.g. "STUDENT", "PARENT", "TEACHER"
+  year       Int
+  lastNumber Int      @default(0)
+  updatedAt  DateTime @updatedAt
 
-  students Student[]
-  alerts   Alert[]
+  @@unique([type, year]) // ensure only one counter per type per year
+}
+
+model Parent {
+  id           String    @id @default(cuid())
+  userId       String    @unique @map("user_id")
+  user         User      @relation(fields: [userId], references: [id])
+  parentNumber String    @unique @map("parent_number")
+  students     Student[]
+  alerts       Alert[]
 }
 
 model Section {
@@ -96,10 +123,11 @@ model Section {
 }
 
 model Student {
-  id        String @id @default(cuid())
-  userId    String @unique @map("user_id")
-  parentId  String @map("parent_id")
-  sectionId String @map("section_id")
+  id            String @id @default(cuid())
+  userId        String @unique @map("user_id")
+  parentId      String @map("parent_id")
+  sectionId     String @map("section_id")
+  studentNumber String @unique @map("student_number")
 
   user    User    @relation(fields: [userId], references: [id])
   parent  Parent  @relation(fields: [parentId], references: [id])
@@ -110,13 +138,13 @@ model Student {
 }
 
 model Teacher {
-  id     String @id @default(cuid())
-  userId String @unique @map("user_id")
-  user   User   @relation(fields: [userId], references: [id])
-
-  classes    Class[]
-  attendance Attendance[]
-  grades     Grade[]
+  id             String       @id @default(cuid())
+  userId         String       @unique @map("user_id")
+  user           User         @relation(fields: [userId], references: [id])
+  employeeNumber String       @unique @map("employee_number")
+  classes        Class[]
+  attendance     Attendance[]
+  grades         Grade[]
 }
 
 model Admin {

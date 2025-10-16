@@ -28,6 +28,7 @@ const SignupPage = () => {
     const { register, handleSubmit, setError, formState: { errors, isSubmitting } } =
         useForm<SignupInput>({ resolver: zodResolver(SignupSchema) });
 
+    // In your signup page onSubmit function:
     const onSubmit = async (data: SignupInput) => {
         const res = await fetch("/api/signup", {
             method: "POST",
@@ -39,6 +40,13 @@ const SignupPage = () => {
             const { error } = await res.json();
             setError("root", { message: error || "Error creating account." });
             return;
+        }
+
+        const result = await res.json();
+
+        // Optional: Store reference code or show success message
+        if (result.referenceCode) {
+            localStorage.setItem("referenceCode", result.referenceCode);
         }
 
         router.push("/login");
