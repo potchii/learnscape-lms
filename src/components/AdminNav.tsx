@@ -11,6 +11,7 @@ export default function AdminNav() {
     const nav = [
         { label: "Users", href: "/admin/dashboard" },
         { label: "Applications", href: "/admin/applicants" },
+        { label: "Sections", href: "/admin/sections" },
         { label: "Settings", href: "/admin/settings" },
     ];
 
@@ -25,7 +26,7 @@ export default function AdminNav() {
 
                     <ul className="flex items-center gap-4 text-sm">
                         {nav.map((item) => {
-                            const isActive = pathname === item.href;
+                            const isActive = pathname.startsWith(item.href);
                             return (
                                 <li key={item.href}>
                                     <Link
