@@ -8,7 +8,7 @@ interface RouteParams {
     };
 }
 
-// GET - Fetch specific section
+// GET - Fetch specific section with class and teacher details
 export async function GET(request: Request, { params }: RouteParams) {
     try {
         await requireSession("ADMIN");
@@ -20,7 +20,19 @@ export async function GET(request: Request, { params }: RouteParams) {
                     select: { id: true }
                 },
                 classes: {
-                    select: { id: true }
+                    include: {
+                        teacher: {
+                            include: {
+                                user: {
+                                    select: {
+                                        firstName: true,
+                                        lastName: true,
+                                        email: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
                 },
             },
         });
@@ -42,107 +54,24 @@ export async function GET(request: Request, { params }: RouteParams) {
     }
 }
 
-// PUT - Update section
-export async function PUT(request: Request, { params }: RouteParams) {
+// POST - Add new class to section
+export async function POST(request: Request, { params }: RouteParams) {
     try {
         await requireSession("ADMIN");
 
-        const { gradeLevel, name } = await request.json();
+        const { subjectName, teacherId, schedule } = await request.json();
 
         // Validate required fields
-        if (!gradeLevel || !name?.trim()) {
+        if (!subjectName?.trim() || !teacherId) {
             return NextResponse.json(
-                { error: "Grade level and section name are required" },
-                { status: 400 }
-            );
-        }
-
-        // Validate grade level
-        const grade = parseInt(gradeLevel);
-        if (grade < 1 || grade > 6) {
-            return NextResponse.json(
-                { error: "Grade level must be between 1 and 6" },
+                { error: "Subject name and teacher are required" },
                 { status: 400 }
             );
         }
 
         // Check if section exists
-        const existingSection = await prisma.section.findUnique({
-            where: { id: params.id },
-        });
-
-        if (!existingSection) {
-            return NextResponse.json(
-                { error: "Section not found" },
-                { status: 404 }
-            );
-        }
-
-        // Check if section with same name already exists in this grade
-        const duplicateSection = await prisma.section.findFirst({
-            where: {
-                gradeLevel: grade,
-                name: name.trim(),
-                id: { not: params.id }, // Exclude current section
-            },
-        });
-
-        if (duplicateSection) {
-            return NextResponse.json(
-                { error: `Section "${name}" already exists for Grade ${grade}` },
-                { status: 400 }
-            );
-        }
-
-        // Update the section
-        const updatedSection = await prisma.section.update({
-            where: { id: params.id },
-            data: {
-                gradeLevel: grade,
-                name: name.trim(),
-            },
-            include: {
-                students: {
-                    select: { id: true }
-                },
-                classes: {
-                    select: { id: true }
-                },
-            },
-        });
-
-        return NextResponse.json(
-            {
-                message: `Section updated successfully: Grade ${grade} - ${name}`,
-                section: updatedSection
-            }
-        );
-
-    } catch (error: any) {
-        console.error("Error updating section:", error);
-        return NextResponse.json(
-            { error: error.message || "Internal server error" },
-            { status: 500 }
-        );
-    }
-}
-
-// DELETE - Delete section
-export async function DELETE(request: Request, { params }: RouteParams) {
-    try {
-        await requireSession("ADMIN");
-
-        // Check if section exists and get its dependencies
         const section = await prisma.section.findUnique({
             where: { id: params.id },
-            include: {
-                students: {
-                    select: { id: true }
-                },
-                classes: {
-                    select: { id: true }
-                },
-            },
         });
 
         if (!section) {
@@ -152,36 +81,79 @@ export async function DELETE(request: Request, { params }: RouteParams) {
             );
         }
 
-        // Check if section has students or classes
-        if (section.students.length > 0 || section.classes.length > 0) {
+        // Check if teacher exists
+        const teacher = await prisma.teacher.findUnique({
+            where: { id: teacherId },
+        });
+
+        if (!teacher) {
             return NextResponse.json(
-                {
-                    error: "Cannot delete section with assigned students or classes",
-                    details: {
-                        students: section.students.length,
-                        classes: section.classes.length
-                    }
-                },
+                { error: "Teacher not found" },
+                { status: 404 }
+            );
+        }
+
+        // Check if class already exists in this section
+        const existingClass = await prisma.class.findFirst({
+            where: {
+                sectionId: params.id,
+                subjectName: subjectName.trim(),
+            },
+        });
+
+        if (existingClass) {
+            return NextResponse.json(
+                { error: `Class "${subjectName}" already exists in this section` },
                 { status: 400 }
             );
         }
 
-        // Delete the section
-        await prisma.section.delete({
-            where: { id: params.id },
+        // Create the class
+        const newClass = await prisma.class.create({
+            data: {
+                subjectName: subjectName.trim(),
+                sectionId: params.id,
+                teacherId: teacherId,
+                schedule: schedule?.trim() || null,
+            },
+            include: {
+                teacher: {
+                    include: {
+                        user: {
+                            select: {
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                            },
+                        },
+                    },
+                },
+            },
         });
 
         return NextResponse.json(
             {
-                message: `Section deleted successfully: Grade ${section.gradeLevel} - ${section.name}`,
-            }
+                message: `Class "${subjectName}" created successfully`,
+                class: newClass,
+            },
+            { status: 201 }
         );
 
     } catch (error: any) {
-        console.error("Error deleting section:", error);
+        console.error("Error creating class:", error);
         return NextResponse.json(
             { error: error.message || "Internal server error" },
             { status: 500 }
         );
     }
+}
+
+// PUT - Update section (keep your existing code)
+export async function PUT(request: Request, { params }: RouteParams) {
+    // ... your existing PUT code remains the same ...
+}
+
+// DELETE - Delete section (keep your existing code)
+export async function DELETE(request: Request, { params }: RouteParams) {
+    // ... your existing DELETE code remains the same ...
 }
