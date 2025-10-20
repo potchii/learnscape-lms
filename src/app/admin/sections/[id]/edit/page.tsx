@@ -198,6 +198,14 @@ export default function EditSectionPage() {
         }
 
         try {
+            console.log("🔄 Updating class:", {
+                sectionId,
+                classId: editingClass.id,
+                subjectName: classForm.subjectName.trim(),
+                teacherId: classForm.teacherId,
+                schedule: classForm.schedule.trim(),
+            });
+
             const res = await fetch(`/api/admin/sections/${sectionId}/classes/${editingClass.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -208,18 +216,22 @@ export default function EditSectionPage() {
                 }),
             });
 
+            console.log("📡 Update response status:", res.status);
+
             if (res.ok) {
                 const data = await res.json();
+                console.log("✅ Update successful:", data);
                 alert(data.message);
                 setEditingClass(null);
                 setClassForm({ subjectName: "", teacherId: "", schedule: "" });
                 fetchSection(); // Refresh section data
             } else {
                 const error = await res.json();
+                console.error("❌ Update failed:", error);
                 alert(error.error || "Error updating class");
             }
         } catch (error) {
-            console.error("Error updating class:", error);
+            console.error("💥 Error updating class:", error);
             alert("Error updating class");
         }
     };
@@ -230,19 +242,25 @@ export default function EditSectionPage() {
         }
 
         try {
+            console.log("🗑️ Deleting class:", { sectionId, classId });
+
             const res = await fetch(`/api/admin/sections/${sectionId}/classes/${classId}`, {
                 method: "DELETE",
             });
 
+            console.log("📡 Delete response status:", res.status);
+
             if (res.ok) {
+                console.log("✅ Delete successful");
                 alert("Class deleted successfully");
                 fetchSection(); // Refresh section data
             } else {
                 const error = await res.json();
+                console.error("❌ Delete failed:", error);
                 alert(error.error || "Error deleting class");
             }
         } catch (error) {
-            console.error("Error deleting class:", error);
+            console.error("💥 Error deleting class:", error);
             alert("Error deleting class");
         }
     };

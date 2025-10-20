@@ -2,66 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/session";
 import prisma from "@/lib/prisma";
 
-export async function GET(
-    request: NextRequest,
-    { params }: { params: { id: string } }
-) {
+// GET - Fetch all sections
+export async function GET(request: NextRequest) {
     try {
         await requireSession("ADMIN");
 
-        const student = await prisma.student.findUnique({
-            where: { id: params.id },
+        const sections = await prisma.section.findMany({
             include: {
-                user: true,
-                parent: {
-                    include: {
-                        user: {
-                            select: {
-                                firstName: true,
-                                lastName: true,
-                                email: true,
-                                phoneNumber: true,
-                            },
-                        },
-                    },
+                students: {
+                    select: { id: true }
                 },
-                section: true,
-                attendance: {
-                    include: {
-                        class: {
-                            select: {
-                                subjectName: true,
-                            },
-                        },
-                    },
-                    orderBy: {
-                        date: "desc",
-                    },
-                    take: 5,
-                },
-                grades: {
-                    include: {
-                        class: {
-                            select: {
-                                subjectName: true,
-                            },
-                        },
-                    },
-                    orderBy: {
-                        gradedAt: "desc",
-                    },
-                    take: 5,
+                classes: {
+                    select: { id: true }
                 },
             },
+            orderBy: [
+                { gradeLevel: 'asc' },
+                { name: 'asc' },
+            ],
         });
 
-        if (!student) {
-            return NextResponse.json({ error: "Student not found" }, { status: 404 });
-        }
-
-        return NextResponse.json(student);
+        return NextResponse.json({ sections });
     } catch (error: any) {
-        console.error("Error fetching student:", error);
+        console.error("Error fetching sections:", error);
         return NextResponse.json(
             { error: error.message || "Internal server error" },
             { status: 500 }
@@ -69,84 +32,63 @@ export async function GET(
     }
 }
 
-export async function PUT(
-    request: NextRequest,
-    { params }: { params: { id: string } }
-) {
+// POST - Create new section
+export async function POST(request: NextRequest) {
     try {
         await requireSession("ADMIN");
 
-        const {
-            firstName,
-            middleName,
-            lastName,
-            email,
-            gender,
-            birthdate,
-            address,
-            phoneNumber,
-            sectionId,
-            parentId,
-        } = await request.json();
+        const { gradeLevel, name } = await request.json();
 
-        // Get student first to find user ID
-        const student = await prisma.student.findUnique({
-            where: { id: params.id },
-            include: { user: true },
-        });
-
-        if (!student) {
-            return NextResponse.json({ error: "Student not found" }, { status: 404 });
+        // Validate required fields
+        if (!gradeLevel || !name?.trim()) {
+            return NextResponse.json(
+                { error: "Grade level and section name are required" },
+                { status: 400 }
+            );
         }
 
-        const result = await prisma.$transaction(async (tx) => {
-            // Update user
-            await tx.user.update({
-                where: { id: student.userId },
-                data: {
-                    firstName,
-                    middleName,
-                    lastName,
-                    email,
-                    gender,
-                    birthdate: new Date(birthdate),
-                    address,
-                    phoneNumber,
-                },
-            });
+        // Validate grade level
+        const grade = parseInt(gradeLevel);
+        if (grade < 1 || grade > 6) {
+            return NextResponse.json(
+                { error: "Grade level must be between 1 and 6" },
+                { status: 400 }
+            );
+        }
 
-            // Update student
-            const updatedStudent = await tx.student.update({
-                where: { id: params.id },
-                data: {
-                    sectionId,
-                    parentId,
-                },
-                include: {
-                    user: true,
-                    section: true,
-                    parent: {
-                        include: {
-                            user: {
-                                select: {
-                                    firstName: true,
-                                    lastName: true,
-                                },
-                            },
-                        },
-                    },
-                },
-            });
-
-            return updatedStudent;
+        // Check if section already exists
+        const existingSection = await prisma.section.findFirst({
+            where: {
+                gradeLevel: grade,
+                name: name.trim(),
+            },
         });
 
-        return NextResponse.json({
-            message: "Student updated successfully",
-            student: result,
+        if (existingSection) {
+            return NextResponse.json(
+                { error: `Section "${name}" already exists for Grade ${grade}` },
+                { status: 400 }
+            );
+        }
+
+        // Create the section
+        const section = await prisma.section.create({
+            data: {
+                gradeLevel: grade,
+                name: name.trim(),
+            },
         });
+
+        return NextResponse.json(
+            {
+                message: `Section created successfully: Grade ${grade} - ${name}`,
+                section,
+            },
+            { status: 201 }
+        );
+
     } catch (error: any) {
-        console.error("Error updating student:", error);
+        console.error("Error creating section:", error);
         return NextResponse.json(
             { error: error.message || "Internal server error" },
             { status: 500 }

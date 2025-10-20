@@ -44,7 +44,12 @@ interface Parent {
     };
 }
 
-export default function EditStudentPage({ params }: { params: { id: string } }) {
+// Update the component to accept params as a Promise
+export default function EditStudentPage({
+    params
+}: {
+    params: Promise<{ id: string }>
+}) {
     const router = useRouter();
     const [student, setStudent] = useState<Student | null>(null);
     const [sections, setSections] = useState<Section[]>([]);
@@ -67,8 +72,12 @@ export default function EditStudentPage({ params }: { params: { id: string } }) 
     useEffect(() => {
         const fetchData = async () => {
             try {
+                // Unwrap the params Promise
+                const unwrappedParams = await params;
+                const studentId = unwrappedParams.id;
+
                 const [studentRes, sectionsRes, parentsRes] = await Promise.all([
-                    fetch(`/api/admin/students/${params.id}`),
+                    fetch(`/api/admin/students/${studentId}`),
                     fetch("/api/admin/sections"),
                     fetch("/api/admin/parents"),
                 ]);
@@ -109,14 +118,17 @@ export default function EditStudentPage({ params }: { params: { id: string } }) 
         };
 
         fetchData();
-    }, [params.id]);
+    }, [params]); // Remove .id from params
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
 
         try {
-            const response = await fetch(`/api/admin/students/${params.id}`, {
+            const unwrappedParams = await params;
+            const studentId = unwrappedParams.id;
+
+            const response = await fetch(`/api/admin/students/${studentId}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -125,7 +137,7 @@ export default function EditStudentPage({ params }: { params: { id: string } }) 
             });
 
             if (response.ok) {
-                router.push(`/admin/students/${params.id}?message=updated`);
+                router.push(`/admin/students/${studentId}?message=updated`);
             } else {
                 const error = await response.json();
                 alert(error.error || "Failed to update student");
@@ -138,7 +150,7 @@ export default function EditStudentPage({ params }: { params: { id: string } }) 
         }
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData({
             ...formData,
             [e.target.name]: e.target.value,
@@ -191,6 +203,7 @@ export default function EditStudentPage({ params }: { params: { id: string } }) 
                 </div>
             </div>
 
+            {/* Rest of your form remains the same */}
             <div className="max-w-4xl">
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Personal Information */}
