@@ -289,7 +289,25 @@ export default async function StudentDashboard() {
                         </div>
                     </div>
                 </Link>
+
+                <Link
+                    href="/student/dashboard/schedule"
+                    className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow"
+                >
+                    <div className="flex items-center">
+                        <div className="flex-shrink-0 h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                            <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <div className="ml-4">
+                            <h3 className="text-lg font-semibold text-gray-900">Weekly Schedule</h3>
+                            <p className="text-sm text-gray-500">View your class timetable</p>
+                        </div>
+                    </div>
+                </Link>
             </div>
+
 
             {/* Rest of your existing dashboard content remains the same */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

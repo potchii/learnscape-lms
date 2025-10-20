@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next"
 
 // 1. Import the Client Component Wrapper for NextAuth
 // Assumes the file path is: src/components/providers/auth-provider.tsx
@@ -17,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LearnScape LMS", // Updated title for the project
+  title: "LearnScape LMS",
   description: "School Management System for Brightfield Primary School",
 };
 
@@ -35,6 +36,7 @@ export default function RootLayout({
         <AuthProvider>
           {children}
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   );
