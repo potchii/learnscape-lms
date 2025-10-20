@@ -222,6 +222,23 @@ export default async function TeacherDashboardPage() {
                         </div>
                     </div>
                 </Link>
+
+                <Link
+                    href="/teacher/dashboard/assignments/create"
+                    className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow"
+                >
+                    <div className="flex items-center">
+                        <div className="flex-shrink-0 h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                            <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                        </div>
+                        <div className="ml-4">
+                            <h3 className="text-lg font-semibold text-gray-900">Create Assignment</h3>
+                            <p className="text-sm text-gray-500">Create new assignments</p>
+                        </div>
+                    </div>
+                </Link>
             </div>
 
             {/* Upcoming Classes */}

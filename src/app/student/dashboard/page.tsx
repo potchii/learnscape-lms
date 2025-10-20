@@ -256,7 +256,7 @@ export default async function StudentDashboard() {
                 </Link>
 
                 <Link
-                    href="/student/assignments"
+                    href="/student/dashboard/assignments"
                     className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow"
                 >
                     <div className="flex items-center">
