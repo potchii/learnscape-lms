@@ -1,9 +1,9 @@
 import { requireSession } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { AssignmentList } from "@/components/student/dashboard/assignments/AssignmentList";
+import { MaterialsLibrary } from "@/components/student/dashboard/materials/MaterialsLibrary";
 
-export default async function StudentAssignmentsPage() {
+export default async function StudentMaterialsPage() {
     const session = await requireSession(["STUDENT", "ADMIN"]);
 
     const student = await prisma.student.findFirst({
@@ -24,17 +24,17 @@ export default async function StudentAssignmentsPage() {
         );
     }
 
-    // Get all assignments for the student
-    const assignments = await prisma.assignment.findMany({
+    // Get all learning materials for the student's classes
+    const materials = await prisma.learningMaterial.findMany({
         where: {
             class: {
                 sectionId: student.sectionId,
             },
-            status: "PUBLISHED",
         },
         include: {
             class: {
-                include: {
+                select: {
+                    subjectName: true,
                     teacher: {
                         include: {
                             user: {
@@ -47,33 +47,28 @@ export default async function StudentAssignmentsPage() {
                     },
                 },
             },
-            submissions: {
-                where: {
-                    studentId: student.id,
-                },
-            },
         },
         orderBy: {
-            dueDate: 'asc',
+            createdAt: 'desc',
         },
     });
 
-    // Separate assignments by status
-    const now = new Date();
-    const upcomingAssignments = assignments.filter(assignment => {
-        const submission = assignment.submissions[0];
-        return assignment.dueDate > now && (!submission || submission.status === 'NOT_SUBMITTED');
-    });
+    // Group materials by class
+    const materialsByClass = materials.reduce((acc, material) => {
+        const className = material.class.subjectName;
+        if (!acc[className]) {
+            acc[className] = [];
+        }
+        acc[className].push(material);
+        return acc;
+    }, {} as Record<string, typeof materials>);
 
-    const submittedAssignments = assignments.filter(assignment => {
-        const submission = assignment.submissions[0];
-        return submission && ['SUBMITTED', 'LATE', 'GRADED'].includes(submission.status);
-    });
-
-    const missedAssignments = assignments.filter(assignment => {
-        const submission = assignment.submissions[0];
-        return assignment.dueDate < now && (!submission || submission.status === 'NOT_SUBMITTED');
-    });
+    // Get material statistics
+    const totalMaterials = materials.length;
+    const videoCount = materials.filter(m => m.type === 'VIDEO').length;
+    const documentCount = materials.filter(m => m.type === 'DOCUMENT').length;
+    const imageCount = materials.filter(m => m.type === 'IMAGE').length;
+    const linkCount = materials.filter(m => m.type === 'LINK').length;
 
     return (
         <div className="container mx-auto p-6 max-w-7xl">
@@ -90,37 +85,37 @@ export default async function StudentAssignmentsPage() {
                         Back to Dashboard
                     </Link>
                 </div>
-                <h1 className="text-3xl font-bold text-gray-900">My Homework</h1>
+                <h1 className="text-3xl font-bold text-gray-900">Learning Materials</h1>
                 <p className="text-gray-600">
-                    View and manage all your assignments
+                    Resources and materials from all your classes
                 </p>
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
                 <div className="bg-white rounded-lg shadow p-4 text-center">
-                    <div className="text-2xl font-bold text-blue-600">{assignments.length}</div>
-                    <div className="text-sm text-gray-600">Total Homework</div>
+                    <div className="text-2xl font-bold text-blue-600">{totalMaterials}</div>
+                    <div className="text-sm text-gray-600">Total</div>
                 </div>
                 <div className="bg-white rounded-lg shadow p-4 text-center">
-                    <div className="text-2xl font-bold text-orange-600">{upcomingAssignments.length}</div>
-                    <div className="text-sm text-gray-600">To Do</div>
+                    <div className="text-2xl font-bold text-red-600">{videoCount}</div>
+                    <div className="text-sm text-gray-600">Videos</div>
                 </div>
                 <div className="bg-white rounded-lg shadow p-4 text-center">
-                    <div className="text-2xl font-bold text-green-600">{submittedAssignments.length}</div>
-                    <div className="text-sm text-gray-600">Submitted</div>
+                    <div className="text-2xl font-bold text-green-600">{documentCount}</div>
+                    <div className="text-sm text-gray-600">Documents</div>
                 </div>
                 <div className="bg-white rounded-lg shadow p-4 text-center">
-                    <div className="text-2xl font-bold text-red-600">{missedAssignments.length}</div>
-                    <div className="text-sm text-gray-600">Missed</div>
+                    <div className="text-2xl font-bold text-purple-600">{imageCount}</div>
+                    <div className="text-sm text-gray-600">Images</div>
+                </div>
+                <div className="bg-white rounded-lg shadow p-4 text-center">
+                    <div className="text-2xl font-bold text-orange-600">{linkCount}</div>
+                    <div className="text-sm text-gray-600">Links</div>
                 </div>
             </div>
 
-            <AssignmentList
-                upcomingAssignments={upcomingAssignments}
-                submittedAssignments={submittedAssignments}
-                missedAssignments={missedAssignments}
-            />
+            <MaterialsLibrary materialsByClass={materialsByClass} />
         </div>
     );
 }

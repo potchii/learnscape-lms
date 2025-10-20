@@ -10,10 +10,11 @@ export async function POST(request: NextRequest) {
         const formData = await request.formData();
         const file = formData.get("file") as File;
         const assignmentId = formData.get("assignmentId") as string;
+        const studentId = formData.get("studentId") as string;
 
-        if (!file || !assignmentId) {
+        if (!file || !assignmentId || !studentId) {
             return NextResponse.json(
-                { error: "File and assignment ID are required" },
+                { error: "File, assignment ID, and student ID are required" },
                 { status: 400 }
             );
         }
@@ -23,22 +24,29 @@ export async function POST(request: NextRequest) {
             where: {
                 id: assignmentId,
                 status: "PUBLISHED",
-                dueDate: {
-                    gt: new Date(), // Assignment not yet due
-                },
             },
         });
 
         if (!assignment) {
             return NextResponse.json(
-                { error: "Assignment not found or submission closed" },
+                { error: "Assignment not found" },
                 { status: 404 }
             );
         }
 
-        // Get student record
+        // Verify the student exists and has access to this assignment
         const student = await prisma.student.findFirst({
-            where: { userId: session.user.id },
+            where: {
+                id: studentId,
+                userId: session.user.id,
+            },
+            include: {
+                section: {
+                    include: {
+                        classes: true,
+                    },
+                },
+            },
         });
 
         if (!student) {
@@ -48,30 +56,45 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Check if student has access to this assignment
+        const hasAccess = student.section.classes.some(
+            (classItem) => classItem.id === assignment.classId
+        );
+
+        if (!hasAccess) {
+            return NextResponse.json(
+                { error: "You don't have access to this assignment" },
+                { status: 403 }
+            );
+        }
+
         // Upload file to Vercel Blob
-        const blob = await put(`assignments/${assignmentId}/${student.id}/${file.name}`, file, {
+        const blob = await put(`assignments/${assignmentId}/${studentId}/${file.name}`, file, {
             access: 'public',
         });
 
         // Create or update submission record
+        const now = new Date();
+        const isLate = now > assignment.dueDate;
+
         const submission = await prisma.assignmentSubmission.upsert({
             where: {
                 assignmentId_studentId: {
                     assignmentId,
-                    studentId: student.id,
+                    studentId,
                 },
             },
             update: {
                 fileUrl: blob.url,
-                submittedAt: new Date(),
-                status: new Date() > assignment.dueDate ? "LATE" : "SUBMITTED",
+                submittedAt: now,
+                status: isLate ? "LATE" : "SUBMITTED",
             },
             create: {
                 assignmentId,
-                studentId: student.id,
+                studentId,
                 fileUrl: blob.url,
-                submittedAt: new Date(),
-                status: new Date() > assignment.dueDate ? "LATE" : "SUBMITTED",
+                submittedAt: now,
+                status: isLate ? "LATE" : "SUBMITTED",
             },
         });
 
@@ -86,9 +109,9 @@ export async function POST(request: NextRequest) {
         });
 
     } catch (error: any) {
-        console.error("File upload error:", error);
+        console.error("Assignment submission error:", error);
         return NextResponse.json(
-            { error: error.message || "Upload failed" },
+            { error: error.message || "Submission failed" },
             { status: 500 }
         );
     }

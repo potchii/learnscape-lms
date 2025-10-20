@@ -2,46 +2,26 @@ import { requireSession } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ClassHeader } from "@/components/student/dashboard/classes/ClassHeader";
+import { LearningMaterials } from "@/components/student/dashboard/classes/LearningMaterials";
+import { ClassAssignments } from "@/components/student/dashboard/classes/ClassAssignments";
+import { ClassProgress } from "@/components/student/dashboard/classes/ClassProgress";
 
-interface ClassDetails {
-    id: string;
-    subjectName: string;
-    schedule: string | null;
-    section: {
-        name: string;
-        gradeLevel: number;
-    };
-    teacher: {
-        user: {
-            firstName: string;
-            lastName: string;
-            email: string;
-        };
-        employeeNumber: string;
-    };
-    grades: Array<{
+interface PageProps {
+    params: {
         id: string;
-        score: number;
-        remarks: string;
-        gradedAt: Date;
-    }>;
-    attendance: Array<{
-        id: string;
-        date: Date;
-        status: string;
-        remarks: string | null;
-    }>;
+    };
 }
 
-export default async function ClassDetailsPage({
-    params,
-}: {
-    params: { id: string };
-}) {
+
+export default async function ClassDetailPage({ params }: PageProps) {
     const session = await requireSession(["STUDENT", "ADMIN"]);
 
     const student = await prisma.student.findFirst({
         where: { userId: session.user.id },
+        include: {
+            section: true,
+        },
     });
 
     if (!student) {
@@ -55,13 +35,13 @@ export default async function ClassDetailsPage({
         );
     }
 
-    const classDetails: ClassDetails | null = await prisma.class.findFirst({
+    // Get the specific class with all related data
+    const classItem = await prisma.class.findFirst({
         where: {
             id: params.id,
-            sectionId: student.sectionId, // Ensure student is in this class's section
+            sectionId: student.sectionId,
         },
         include: {
-            section: true,
             teacher: {
                 include: {
                     user: {
@@ -73,250 +53,148 @@ export default async function ClassDetailsPage({
                     },
                 },
             },
-            grades: {
+            Assignment: {
                 where: {
-                    studentId: student.id,
+                    status: "PUBLISHED",
+                },
+                include: {
+                    submissions: {
+                        where: {
+                            studentId: student.id,
+                        },
+                    },
                 },
                 orderBy: {
-                    gradedAt: 'desc',
+                    dueDate: 'asc',
                 },
             },
-            attendance: {
-                where: {
-                    studentId: student.id,
-                },
+            learningMaterials: {
                 orderBy: {
-                    date: 'desc',
+                    createdAt: 'desc',
                 },
             },
-            // Removed learningMaterials as it doesn't exist in the Class model
+            announcements: {
+                orderBy: {
+                    createdAt: 'desc',
+                },
+                take: 5,
+            },
         },
     });
 
-    if (!classDetails) {
+    if (!classItem) {
         notFound();
     }
 
-    // Fetch learning materials separately since they're not directly related to Class in the schema
-    const learningMaterials = await prisma.learningMaterial.findMany({
-        where: {
-            classId: params.id,
-        },
-        orderBy: {
-            createdAt: 'desc',
-        },
-        take: 10,
-    });
+    // Calculate class progress
+    const totalAssignments = classItem.Assignment.length;
+    const submittedAssignments = classItem.Assignment.filter(assignment => {
+        const submission = assignment.submissions[0];
+        return submission && submission.status !== 'NOT_SUBMITTED';
+    }).length;
 
-    // Calculate class statistics
-    const averageGrade = classDetails.grades.length > 0
-        ? classDetails.grades.reduce((sum, grade) => sum + grade.score, 0) / classDetails.grades.length
-        : 0;
-
-    const attendanceStats = {
-        total: classDetails.attendance.length,
-        present: classDetails.attendance.filter(a => a.status === 'PRESENT').length,
-        absent: classDetails.attendance.filter(a => a.status === 'ABSENT').length,
-        late: classDetails.attendance.filter(a => a.status === 'LATE').length,
-        excused: classDetails.attendance.filter(a => a.status === 'EXCUSED').length,
-    };
-
-    const attendanceRate = attendanceStats.total > 0
-        ? Math.round((attendanceStats.present / attendanceStats.total) * 100)
-        : 0;
+    const progress = totalAssignments > 0 ? (submittedAssignments / totalAssignments) * 100 : 0;
 
     return (
-        <div className="container mx-auto p-6 max-w-6xl">
-            {/* Header */}
+        <div className="container mx-auto p-6 max-w-7xl">
+            {/* Back Navigation */}
             <div className="mb-6">
-                <div className="flex items-center space-x-3 mb-2">
-                    <Link
-                        href="/student/dashboard"
-                        className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
-                    >
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                        Back to Dashboard
-                    </Link>
-                </div>
-                <div className="flex justify-between items-start">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900">{classDetails.subjectName}</h1>
-                        <p className="text-gray-600">
-                            Grade {classDetails.section.gradeLevel} • {classDetails.section.name} Section
-                        </p>
-                        {classDetails.schedule && (
-                            <p className="text-gray-500 mt-1">Schedule: {classDetails.schedule}</p>
-                        )}
-                    </div>
-                </div>
+                <Link
+                    href="/student/dashboard"
+                    className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
+                >
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Back to Dashboard
+                </Link>
             </div>
 
-            {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-white rounded-lg shadow p-4">
-                    <div className="text-2xl font-bold text-blue-600">{classDetails.grades.length}</div>
-                    <div className="text-sm text-gray-600">Grades</div>
-                </div>
-                <div className="bg-white rounded-lg shadow p-4">
-                    <div className="text-2xl font-bold text-green-600">{averageGrade.toFixed(1)}%</div>
-                    <div className="text-sm text-gray-600">Average Grade</div>
-                </div>
-                <div className="bg-white rounded-lg shadow p-4">
-                    <div className="text-2xl font-bold text-purple-600">{attendanceRate}%</div>
-                    <div className="text-sm text-gray-600">Attendance</div>
-                </div>
-                <div className="bg-white rounded-lg shadow p-4">
-                    <div className="text-2xl font-bold text-orange-600">{learningMaterials.length}</div>
-                    <div className="text-sm text-gray-600">Materials</div>
-                </div>
-            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                {/* Main Content */}
+                <div className="lg:col-span-3 space-y-6">
+                    <ClassHeader
+                        classItem={classItem}
+                        progress={progress}
+                        totalAssignments={totalAssignments}
+                        submittedAssignments={submittedAssignments}
+                    />
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Teacher Information */}
-                <div className="lg:col-span-1">
+                    <LearningMaterials
+                        materials={classItem.learningMaterials}
+                        classId={classItem.id}
+                    />
+
+                    <ClassAssignments
+                        assignments={classItem.Assignment}
+                        studentId={student.id}
+                    />
+                </div>
+
+                {/* Sidebar */}
+                <div className="space-y-6">
+                    <ClassProgress
+                        progress={progress}
+                        totalAssignments={totalAssignments}
+                        submittedAssignments={submittedAssignments}
+                        materialsCount={classItem.learningMaterials.length}
+                    />
+
+                    {/* Teacher Info */}
                     <div className="bg-white rounded-lg shadow p-6">
-                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Teacher Information</h2>
-                        <div className="space-y-3">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Teacher</h3>
+                        <div className="flex items-center space-x-3">
+                            <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center text-lg">
+                                <span className="text-blue-600 font-semibold">
+                                    {classItem.teacher.user.firstName[0]}{classItem.teacher.user.lastName[0]}
+                                </span>
+                            </div>
                             <div>
-                                <label className="text-sm font-medium text-gray-500">Name</label>
-                                <p className="text-lg font-semibold text-gray-900">
-                                    {classDetails.teacher.user.firstName} {classDetails.teacher.user.lastName}
+                                <p className="font-medium text-gray-900">
+                                    {classItem.teacher.user.firstName} {classItem.teacher.user.lastName}
                                 </p>
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-500">Email</label>
-                                <p className="text-gray-900">{classDetails.teacher.user.email}</p>
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-500">Employee ID</label>
-                                <p className="text-gray-900">{classDetails.teacher.employeeNumber}</p>
+                                <p className="text-sm text-gray-600">{classItem.teacher.user.email}</p>
+                                <button className="text-sm text-blue-600 hover:text-blue-800 mt-1">
+                                    Send Message
+                                </button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Attendance Summary */}
-                    <div className="bg-white rounded-lg shadow p-6 mt-6">
-                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Attendance Summary</h2>
-                        <div className="space-y-3">
-                            <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Present</span>
-                                <span className="font-semibold text-green-600">{attendanceStats.present}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Absent</span>
-                                <span className="font-semibold text-red-600">{attendanceStats.absent}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Late</span>
-                                <span className="font-semibold text-yellow-600">{attendanceStats.late}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm text-gray-600">Excused</span>
-                                <span className="font-semibold text-purple-600">{attendanceStats.excused}</span>
-                            </div>
-                            <div className="border-t pt-3 mt-3">
-                                <div className="flex justify-between">
-                                    <span className="text-sm font-medium text-gray-700">Total Classes</span>
-                                    <span className="font-semibold text-gray-900">{attendanceStats.total}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Grades and Materials */}
-                <div className="lg:col-span-2 space-y-6">
-                    {/* Recent Grades */}
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-xl font-semibold text-gray-900">Recent Grades</h2>
-                            <span className="text-sm text-gray-500">{classDetails.grades.length} total</span>
-                        </div>
-
-                        <div className="space-y-3">
-                            {classDetails.grades.slice(0, 5).map((grade) => (
-                                <div key={grade.id} className="flex justify-between items-center p-3 border border-gray-200 rounded-lg">
-                                    <div>
-                                        <p className="text-sm text-gray-500">
-                                            {grade.gradedAt.toLocaleDateString()}
-                                        </p>
-                                        <p className="text-sm text-gray-600 mt-1">
-                                            {grade.remarks || 'No remarks'}
-                                        </p>
+                    {/* Class Schedule */}
+                    {classItem.schedule && (
+                        <div className="bg-white rounded-lg shadow p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Class Times</h3>
+                            <div className="text-sm text-gray-600 space-y-1">
+                                {classItem.schedule.split(', ').map((timeSlot, index) => (
+                                    <div key={index} className="flex items-center">
+                                        <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                                        {timeSlot}
                                     </div>
-                                    <span className={`text-lg font-bold ${grade.score >= 90 ? 'text-green-600' :
-                                            grade.score >= 80 ? 'text-blue-600' :
-                                                grade.score >= 70 ? 'text-yellow-600' : 'text-red-600'
-                                        }`}>
-                                        {grade.score}%
-                                    </span>
-                                </div>
-                            ))}
-
-                            {classDetails.grades.length === 0 && (
-                                <div className="text-center py-8 text-gray-500">
-                                    <p>No grades recorded for this class yet.</p>
-                                </div>
-                            )}
-
-                            {classDetails.grades.length > 5 && (
-                                <div className="text-center pt-4">
-                                    <Link
-                                        href="/student/grades"
-                                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                    >
-                                        View All Grades →
-                                    </Link>
-                                </div>
-                            )}
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
-                    {/* Learning Materials */}
+                    {/* Quick Actions */}
                     <div className="bg-white rounded-lg shadow p-6">
-                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Learning Materials</h2>
-
-                        <div className="space-y-3">
-                            {learningMaterials.map((material) => (
-                                <div key={material.id} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <h3 className="font-semibold text-gray-900">{material.title}</h3>
-                                            {material.description && (
-                                                <p className="text-sm text-gray-600 mt-1">{material.description}</p>
-                                            )}
-                                            <div className="flex items-center space-x-2 mt-2">
-                                                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${material.type === 'VIDEO' ? 'bg-red-100 text-red-800' :
-                                                        material.type === 'DOCUMENT' ? 'bg-blue-100 text-blue-800' :
-                                                            material.type === 'IMAGE' ? 'bg-green-100 text-green-800' :
-                                                                'bg-purple-100 text-purple-800'
-                                                    }`}>
-                                                    {material.type.toLowerCase()}
-                                                </span>
-                                                <span className="text-xs text-gray-500">
-                                                    Posted {material.createdAt.toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <a
-                                            href={material.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                        >
-                                            View →
-                                        </a>
-                                    </div>
-                                </div>
-                            ))}
-
-                            {learningMaterials.length === 0 && (
-                                <div className="text-center py-8 text-gray-500">
-                                    <p>No learning materials available yet.</p>
-                                </div>
-                            )}
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+                        <div className="space-y-2">
+                            <Link
+                                href={`/student/assignments?class=${classItem.id}`}
+                                className="block w-full text-center px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                                View All Homework
+                            </Link>
+                            <Link
+                                href={`/student/schedule`}
+                                className="block w-full text-center px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+                            >
+                                View My Timetable
+                            </Link>
+                            <button className="block w-full text-center px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors">
+                                Ask for Help
+                            </button>
                         </div>
                     </div>
                 </div>
