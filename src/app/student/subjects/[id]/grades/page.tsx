@@ -10,11 +10,11 @@ interface PageProps {
     };
 }
 
-export default async function GradesPage({ params }: PageProps) {
-    const session = await requireSession(["STUDENT", "ADMIN"]);
+export default async function SubjectGradesPage({ params }: PageProps) {
+    const session = await requireSession(["STUDENT"]);
     const classId = params.id;
 
-    // Get student and verify access
+    // Get student
     const student = await prisma.student.findFirst({
         where: { userId: session.user.id },
         include: {
@@ -26,7 +26,7 @@ export default async function GradesPage({ params }: PageProps) {
         notFound();
     }
 
-    // Get class info
+    // Get class
     const classData = await prisma.class.findUnique({
         where: {
             id: classId,
@@ -43,12 +43,6 @@ export default async function GradesPage({ params }: PageProps) {
                     },
                 },
             },
-            section: {
-                select: {
-                    name: true,
-                    gradeLevel: true,
-                },
-            },
         },
     });
 
@@ -56,20 +50,13 @@ export default async function GradesPage({ params }: PageProps) {
         notFound();
     }
 
-    // Get all grades for this student in this class
+    // Get grades for this student in this class WITH assignment data
     const grades = await prisma.grade.findMany({
         where: {
             studentId: student.id,
             classId: classId,
         },
         include: {
-            assignment: {
-                select: {
-                    title: true,
-                    maxScore: true,
-                    dueDate: true,
-                },
-            },
             teacher: {
                 include: {
                     user: {
@@ -80,172 +67,147 @@ export default async function GradesPage({ params }: PageProps) {
                     },
                 },
             },
+            assignment: {
+                select: {
+                    id: true,
+                    title: true,
+                    maxScore: true,
+                    dueDate: true,
+                },
+            },
         },
         orderBy: {
             gradedAt: 'desc',
         },
     });
 
-    // Calculate statistics
-    const stats = calculateGradeStats(grades);
+    // Calculate overall grade statistics
+    const gradeStats = calculateGradeStats(grades);
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Back Navigation */}
-            <div className="bg-white border-b border-gray-200">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="py-4">
-                        <Link
-                            href={`/student/subjects/${classId}`}
-                            className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
-                        >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                            </svg>
-                            Back to {classData.subjectName}
-                        </Link>
-                    </div>
-                </div>
-            </div>
-
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="min-h-screen bg-gray-50 py-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-                    <h1 className="text-2xl font-bold text-gray-900">
-                        Grades - {classData.subjectName}
-                    </h1>
-                    <p className="text-gray-600 mt-2">
-                        Grade {classData.section.gradeLevel} • {classData.section.name}
-                    </p>
+                <div className="mb-8">
+                    <Link
+                        href={`/student/subjects/${classId}`}
+                        className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
+                    >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Back to Subject
+                    </Link>
+                    <h1 className="text-3xl font-bold text-gray-900">Grades - {classData.subjectName}</h1>
+                    <p className="text-gray-600 mt-2">Your performance in {classData.subjectName}</p>
                 </div>
 
                 {/* Grade Statistics */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-                        <div className="text-2xl font-bold text-blue-600">{stats.average}%</div>
-                        <div className="text-sm text-gray-600">Average Grade</div>
+                        <div className="text-2xl font-bold text-blue-600">{gradeStats.average}%</div>
+                        <div className="text-sm text-gray-600">Average</div>
                     </div>
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-                        <div className="text-2xl font-bold text-green-600">{stats.highest}%</div>
-                        <div className="text-sm text-gray-600">Highest Grade</div>
+                        <div className="text-2xl font-bold text-green-600">{gradeStats.highest}%</div>
+                        <div className="text-sm text-gray-600">Highest</div>
                     </div>
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-                        <div className="text-2xl font-bold text-orange-600">{stats.lowest}%</div>
-                        <div className="text-sm text-gray-600">Lowest Grade</div>
+                        <div className="text-2xl font-bold text-orange-600">{gradeStats.lowest}%</div>
+                        <div className="text-sm text-gray-600">Lowest</div>
                     </div>
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-                        <div className="text-2xl font-bold text-purple-600">{stats.total}</div>
-                        <div className="text-sm text-gray-600">Total Graded</div>
+                        <div className="text-2xl font-bold text-purple-600">{gradeStats.total}</div>
+                        <div className="text-sm text-gray-600">Total Grades</div>
                     </div>
                 </div>
 
-                {/* Grades Table */}
+                {/* All Grades */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                     <div className="p-6 border-b border-gray-200">
-                        <h2 className="text-lg font-semibold text-gray-900">Grade History</h2>
-                        <p className="text-gray-600 mt-1">All your graded assignments and assessments</p>
+                        <h2 className="text-xl font-semibold text-gray-900">All Grades</h2>
+                        <p className="text-gray-600 mt-1">Complete history of your graded assessments</p>
                     </div>
 
                     <div className="p-6">
                         {grades.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead>
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Assignment
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Due Date
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Score
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Percentage
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Graded By
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Date Graded
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {grades.map((grade) => (
-                                            <tr key={grade.id} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        {grade.assignment?.title || 'Unknown Assignment'}
-                                                    </div>
-                                                    {grade.assignment?.maxScore && (
-                                                        <div className="text-sm text-gray-500">
-                                                            Out of {grade.assignment.maxScore} points
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {grade.assignment?.dueDate
-                                                        ? new Date(grade.assignment.dueDate).toLocaleDateString()
-                                                        : 'N/A'
-                                                    }
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm font-semibold text-gray-900">
-                                                        {grade.score}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className={`text-sm font-semibold ${getGradeColor(calculatePercentage(grade.score, grade.assignment?.maxScore))
-                                                        }`}>
-                                                        {calculatePercentage(grade.score, grade.assignment?.maxScore)}%
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {grade.teacher.user.firstName} {grade.teacher.user.lastName}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {new Date(grade.gradedAt).toLocaleDateString()}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div className="space-y-4">
+                                {grades.map((grade) => (
+                                    <div
+                                        key={grade.id}
+                                        className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                    >
+                                        <div className="flex-1">
+                                            <h3 className="font-medium text-gray-900">
+                                                {grade.assignment?.title || `Assessment`}
+                                            </h3>
+                                            <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
+                                                <span>
+                                                    Score: {grade.score}
+                                                    {grade.assignment?.maxScore && ` / ${grade.assignment.maxScore}`}
+                                                </span>
+                                                <span>•</span>
+                                                <span>
+                                                    Graded on {new Date(grade.gradedAt).toLocaleDateString()}
+                                                </span>
+                                                <span>•</span>
+                                                <span>
+                                                    By {grade.teacher.user.firstName} {grade.teacher.user.lastName}
+                                                </span>
+                                            </div>
+                                            {grade.remarks && (
+                                                <p className="text-sm text-gray-600 mt-2 italic">
+                                                    "{grade.remarks}"
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className={`text-lg font-semibold ${getGradeColor(calculatePercentage(grade.score, grade.assignment?.maxScore))
+                                            }`}>
+                                            {calculatePercentage(grade.score, grade.assignment?.maxScore)}%
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         ) : (
-                            <div className="text-center py-12 text-gray-500">
-                                <div className="text-gray-400 mb-4">
-                                    <svg className="mx-auto h-16 w-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="text-center py-8 text-gray-500">
+                                <div className="text-gray-400 mb-3">
+                                    <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                 </div>
-                                <h3 className="text-lg font-medium text-gray-900 mb-2">No grades yet</h3>
-                                <p className="text-gray-500">Your grades will appear here once assignments are graded.</p>
+                                <h3 className="text-lg font-medium text-gray-900 mb-1">No grades yet</h3>
+                                <p className="text-gray-500">Your grades will appear here once assessments are graded.</p>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* Grade Summary */}
+                {/* Performance Summary */}
                 {grades.length > 0 && (
-                    <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
-                        <h3 className="text-lg font-semibold text-blue-900 mb-4">Grade Summary</h3>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mt-6">
+                        <h3 className="text-lg font-semibold text-blue-900 mb-3">Performance Summary</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                             <div>
                                 <p className="text-blue-800">
-                                    <span className="font-medium">Current Average:</span> {stats.average}%
+                                    <span className="font-medium">Current Average:</span> {gradeStats.average}%
                                 </p>
                                 <p className="text-blue-800">
-                                    <span className="font-medium">Grading Scale:</span> A (90-100), B (80-89), C (70-79), D (60-69), F (0-59)
+                                    <span className="font-medium">Letter Grade:</span> {calculateLetterGrade(gradeStats.average)}
+                                </p>
+                                <p className="text-blue-800">
+                                    <span className="font-medium">Graded Items:</span> {gradeStats.completed} of {gradeStats.total}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-blue-800">
-                                    <span className="font-medium">Performance:</span> {getPerformanceText(stats.average)}
+                                    <span className="font-medium">Performance:</span> {getPerformanceText(gradeStats.average)}
                                 </p>
                                 <p className="text-blue-800">
-                                    <span className="font-medium">Letter Grade:</span> {calculateLetterGrade(stats.average)}
+                                    <span className="font-medium">Grade Range:</span> {gradeStats.lowest}% - {gradeStats.highest}%
+                                </p>
+                                <p className="text-blue-800">
+                                    <span className="font-medium">Teacher:</span> {classData.teacher.user.firstName} {classData.teacher.user.lastName}
                                 </p>
                             </div>
                         </div>
@@ -256,7 +218,12 @@ export default async function GradesPage({ params }: PageProps) {
     );
 }
 
-// Helper functions
+// Update the calculatePercentage function to handle undefined
+function calculatePercentage(score: number, maxScore: number | null | undefined): number {
+    if (!maxScore || maxScore === 0) return 0;
+    return Math.round((score / maxScore) * 100);
+}
+
 function calculateGradeStats(grades: any[]) {
     if (grades.length === 0) {
         return {
@@ -264,11 +231,27 @@ function calculateGradeStats(grades: any[]) {
             highest: 0,
             lowest: 0,
             total: 0,
+            completed: 0,
         };
     }
 
-    const percentages = grades.map(grade =>
-        calculatePercentage(grade.score, grade.assignment?.maxScore)
+    // Only calculate for grades that have assignments and valid maxScore
+    const validGrades = grades.filter(grade =>
+        grade.assignment && grade.assignment.maxScore && grade.assignment.maxScore > 0
+    );
+
+    if (validGrades.length === 0) {
+        return {
+            average: 0,
+            highest: 0,
+            lowest: 0,
+            total: grades.length,
+            completed: 0,
+        };
+    }
+
+    const percentages = validGrades.map(grade =>
+        calculatePercentage(grade.score, grade.assignment.maxScore)
     );
 
     const average = percentages.reduce((a, b) => a + b, 0) / percentages.length;
@@ -280,12 +263,8 @@ function calculateGradeStats(grades: any[]) {
         highest: Math.round(highest * 100) / 100,
         lowest: Math.round(lowest * 100) / 100,
         total: grades.length,
+        completed: validGrades.length,
     };
-}
-
-function calculatePercentage(score: number, maxScore: number | null): number {
-    if (!maxScore || maxScore === 0) return 0;
-    return Math.round((score / maxScore) * 100);
 }
 
 function getGradeColor(percentage: number): string {

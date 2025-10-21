@@ -1,4 +1,4 @@
-// src/app/student/subjects/[id]/SubjectGrades.tsx
+// src/components/student/dashboard/subjects/SubjectGrades.tsx
 import Link from "next/link";
 
 interface SubjectGradesProps {
@@ -32,7 +32,7 @@ export function SubjectGrades({ grades, gradeStats, classId }: SubjectGradesProp
                 </div>
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
                     <div className="text-2xl font-bold text-purple-600">{gradeStats.total}</div>
-                    <div className="text-sm text-gray-600">Graded</div>
+                    <div className="text-sm text-gray-600">Total Grades</div>
                 </div>
             </div>
 
@@ -41,8 +41,8 @@ export function SubjectGrades({ grades, gradeStats, classId }: SubjectGradesProp
                 <div className="p-6 border-b border-gray-200">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-xl font-semibold text-gray-900">Recent Grades</h2>
-                            <p className="text-gray-600 mt-1">Your latest graded assignments</p>
+                            <h2 className="text-xl font-semibold text-gray-900">Grade History</h2>
+                            <p className="text-gray-600 mt-1">Your graded assessments</p>
                         </div>
                         <Link
                             href={`/student/subjects/${classId}/grades`}
@@ -63,7 +63,7 @@ export function SubjectGrades({ grades, gradeStats, classId }: SubjectGradesProp
                                 >
                                     <div className="flex-1">
                                         <h3 className="font-medium text-gray-900">
-                                            {grade.assignment?.title || 'Unknown Assignment'}
+                                            {grade.assignment?.title || `Assessment`}
                                         </h3>
                                         <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
                                             <span>
@@ -75,6 +75,11 @@ export function SubjectGrades({ grades, gradeStats, classId }: SubjectGradesProp
                                                 Graded on {new Date(grade.gradedAt).toLocaleDateString()}
                                             </span>
                                         </div>
+                                        {grade.remarks && (
+                                            <p className="text-sm text-gray-600 mt-2 italic">
+                                                "{grade.remarks}"
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className={`text-lg font-semibold ${getGradeColor(calculatePercentage(grade.score, grade.assignment?.maxScore))
@@ -92,7 +97,7 @@ export function SubjectGrades({ grades, gradeStats, classId }: SubjectGradesProp
                                 </svg>
                             </div>
                             <h3 className="text-lg font-medium text-gray-900 mb-1">No grades yet</h3>
-                            <p className="text-gray-500">Your grades will appear here once assignments are graded.</p>
+                            <p className="text-gray-500">Your grades will appear here once assessments are graded.</p>
                         </div>
                     )}
 
@@ -138,7 +143,7 @@ export function SubjectGrades({ grades, gradeStats, classId }: SubjectGradesProp
 }
 
 // Helper functions
-function calculatePercentage(score: number, maxScore: number | null): number {
+function calculatePercentage(score: number, maxScore: number | null | undefined): number {
     if (!maxScore || maxScore === 0) return 0;
     return Math.round((score / maxScore) * 100);
 }

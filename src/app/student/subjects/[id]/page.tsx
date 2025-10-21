@@ -95,6 +95,11 @@ export default async function SubjectPage({ params, searchParams }: PageProps) {
                             studentId: student.id,
                         },
                     },
+                    grades: {
+                        where: {
+                            studentId: student.id,
+                        },
+                    },
                 },
             },
         },
@@ -126,17 +131,29 @@ export default async function SubjectPage({ params, searchParams }: PageProps) {
         },
     });
 
-    // Get grades for this student in this class
+    // Get grades for this student in this class WITH assignment data
     const grades = await prisma.grade.findMany({
         where: {
             studentId: student.id,
             classId: classId,
         },
         include: {
+            teacher: {
+                include: {
+                    user: {
+                        select: {
+                            firstName: true,
+                            lastName: true,
+                        },
+                    },
+                },
+            },
             assignment: {
                 select: {
+                    id: true,
                     title: true,
                     maxScore: true,
+                    dueDate: true,
                 },
             },
         },
@@ -228,16 +245,39 @@ function calculateGradeStats(grades: any[]) {
         };
     }
 
-    const scores = grades.map(grade => grade.score);
-    const average = scores.reduce((a, b) => a + b, 0) / scores.length;
-    const highest = Math.max(...scores);
-    const lowest = Math.min(...scores);
+    // Only calculate for grades that have assignments and valid maxScore
+    const validGrades = grades.filter(grade =>
+        grade.assignment && grade.assignment.maxScore && grade.assignment.maxScore > 0
+    );
+
+    if (validGrades.length === 0) {
+        return {
+            average: 0,
+            highest: 0,
+            lowest: 0,
+            total: grades.length,
+            completed: 0,
+        };
+    }
+
+    const percentages = validGrades.map(grade =>
+        calculatePercentage(grade.score, grade.assignment.maxScore)
+    );
+
+    const average = percentages.reduce((a, b) => a + b, 0) / percentages.length;
+    const highest = Math.max(...percentages);
+    const lowest = Math.min(...percentages);
 
     return {
         average: Math.round(average * 100) / 100,
         highest: Math.round(highest * 100) / 100,
         lowest: Math.round(lowest * 100) / 100,
         total: grades.length,
-        completed: grades.filter(grade => grade.score !== null).length,
+        completed: validGrades.length,
     };
+}
+
+function calculatePercentage(score: number, maxScore: number): number {
+    if (!maxScore || maxScore === 0) return 0;
+    return Math.round((score / maxScore) * 100);
 }

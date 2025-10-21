@@ -3,66 +3,52 @@ import { requireSession } from "@/lib/session";
 import prisma from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
-    try {
-        const session = await requireSession("TEACHER");
-        const { studentId, classId, score, emojiFeedback, assignmentName } = await request.json();
+    const session = await requireSession(["TEACHER"]);
 
+    try {
+        const { studentId, classId, score, remarks, assignmentId } = await request.json();
+
+        // Validate the teacher has access to this class
         const teacher = await prisma.teacher.findFirst({
-            where: { userId: session.user.id }
+            where: {
+                userId: session.user.id,
+                classes: {
+                    some: {
+                        id: classId,
+                    },
+                },
+            },
         });
 
         if (!teacher) {
-            return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
+            return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
         }
 
-        // Verify the teacher teaches this class
-        const classItem = await prisma.class.findFirst({
-            where: {
-                id: classId,
-                teacherId: teacher.id
-            }
-        });
-
-        if (!classItem) {
-            return NextResponse.json({ error: "Class not found or access denied" }, { status: 403 });
-        }
-
-        // Create or update grade with emoji feedback
+        // Create the grade with assignment link
         const grade = await prisma.grade.create({
             data: {
                 studentId,
                 classId,
                 teacherId: teacher.id,
-                score: parseFloat(score),
-                remarks: emojiFeedback, // Store emoji feedback in remarks field
+                assignmentId: assignmentId || null, // Allow null for general grades
+                score,
+                remarks,
             },
             include: {
-                student: {
-                    include: {
-                        user: {
-                            select: {
-                                firstName: true,
-                                lastName: true,
-                            },
-                        },
-                    },
-                },
-                class: {
+                assignment: {
                     select: {
-                        subjectName: true,
+                        title: true,
+                        maxScore: true,
                     },
                 },
             },
         });
 
-        return NextResponse.json({
-            message: "Grade submitted successfully",
-            grade
-        });
-    } catch (error: any) {
-        console.error("Error submitting grade:", error);
+        return NextResponse.json({ grade });
+    } catch (error) {
+        console.error("Error creating grade:", error);
         return NextResponse.json(
-            { error: error.message || "Internal server error" },
+            { error: "Internal server error" },
             { status: 500 }
         );
     }
