@@ -1,6 +1,8 @@
 // src/app/student/layout.tsx
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { StudentNav } from "@/components/student/dashboard/StudentNav";
+import { Footer } from "@/components/Footer";
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -23,8 +25,12 @@ export default function StudentLayout({
     children: React.ReactNode;
 }) {
     return (
-        <div className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-gray-50`}>
-            {children}
+        <div className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-gray-50 flex flex-col`}>
+            <StudentNav />
+            <main className="flex-1">
+                {children}
+            </main>
+            <Footer />
         </div>
     );
 }

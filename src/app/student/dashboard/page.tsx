@@ -1,55 +1,45 @@
+// src/app/student/dashboard/page.tsx
 import { requireSession } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { ClassProgressGrid } from "@/components/student/dashboard/ClassProgressGrid";
-import { UpcomingDeadlines } from "@/components/student/dashboard/UpcomingDeadlines";
-import { RecentActivityFeed } from "@/components/student/dashboard/RecentActivityFeed"
-import { QuickStats } from "@/components/student/dashboard/QuickStats";
+import { UpcomingTasks } from "@/components/student/dashboard/UpcomingTasks";
+import { RecentActivity } from "@/components/student/dashboard/RecentActivity";
+
+interface DashboardData {
+    upcomingTasks: Array<{
+        id: string;
+        title: string;
+        type: 'ASSIGNMENT' | 'QUIZ';
+        dueDate: Date;
+        subject: string;
+        subjectColor: string;
+        status: 'PENDING' | 'SUBMITTED' | 'OVERDUE';
+        priority: 'HIGH' | 'MEDIUM' | 'LOW';
+    }>;
+    recentActivity: Array<{
+        id: string;
+        type: 'ANNOUNCEMENT' | 'MATERIAL' | 'GRADE' | 'SUBMISSION';
+        title: string;
+        description: string;
+        subject: string;
+        timestamp: Date;
+        link: string;
+    }>;
+    stats: {
+        totalPending: number;
+        overdueCount: number;
+        averageGrade: number;
+        completedThisWeek: number;
+    };
+}
 
 export default async function StudentDashboardPage() {
     const session = await requireSession(["STUDENT", "ADMIN"]);
 
-    // Get student with their section
     const student = await prisma.student.findFirst({
         where: { userId: session.user.id },
         include: {
-            user: {
-                select: {
-                    firstName: true,
-                    lastName: true,
-                },
-            },
-            section: {
-                include: {
-                    classes: {
-                        include: {
-                            teacher: {
-                                include: {
-                                    user: {
-                                        select: {
-                                            firstName: true,
-                                            lastName: true,
-                                        },
-                                    },
-                                },
-                            },
-                            _count: {
-                                select: {
-                                    Assignment: {
-                                        where: {
-                                            status: "PUBLISHED",
-                                        },
-                                    },
-                                    learningMaterials: true,
-                                },
-                            },
-                        },
-                        orderBy: {
-                            subjectName: 'asc',
-                        },
-                    },
-                },
-            },
+            section: true,
         },
     });
 
@@ -64,109 +54,165 @@ export default async function StudentDashboardPage() {
         );
     }
 
-    // Get assignments separately for all classes
+    // Fetch data for dashboard
+    const dashboardData = await getDashboardData(student.id);
+
+    return (
+        <div className="container mx-auto p-6 max-w-7xl">
+            {/* Header */}
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+                <p className="text-gray-600 mt-2">Overview of your academic progress and activities</p>
+            </div>
+
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center">
+                        <div className="flex-shrink-0 h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                            <span className="text-red-600 font-semibold">{dashboardData.stats.totalPending}</span>
+                        </div>
+                        <div className="ml-4">
+                            <h3 className="text-sm font-medium text-gray-900">Pending Tasks</h3>
+                            <p className="text-sm text-gray-500">To be completed</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center">
+                        <div className="flex-shrink-0 h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                            <span className="text-orange-600 font-semibold">{dashboardData.stats.overdueCount}</span>
+                        </div>
+                        <div className="ml-4">
+                            <h3 className="text-sm font-medium text-gray-900">Overdue</h3>
+                            <p className="text-sm text-gray-500">Past due date</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center">
+                        <div className="flex-shrink-0 h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <span className="text-blue-600 font-semibold">{dashboardData.stats.averageGrade}%</span>
+                        </div>
+                        <div className="ml-4">
+                            <h3 className="text-sm font-medium text-gray-900">Average Grade</h3>
+                            <p className="text-sm text-gray-500">Current standing</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center">
+                        <div className="flex-shrink-0 h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
+                            <span className="text-green-600 font-semibold">{dashboardData.stats.completedThisWeek}</span>
+                        </div>
+                        <div className="ml-4">
+                            <h3 className="text-sm font-medium text-gray-900">Completed</h3>
+                            <p className="text-sm text-gray-500">This week</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Upcoming Tasks */}
+                <UpcomingTasks tasks={dashboardData.upcomingTasks} />
+
+                {/* Recent Activity */}
+                <RecentActivity activities={dashboardData.recentActivity} />
+            </div>
+        </div>
+    );
+}
+
+async function getDashboardData(studentId: string): Promise<DashboardData> {
+    // Get upcoming assignments
     const assignments = await prisma.assignment.findMany({
         where: {
-            status: "PUBLISHED",
             class: {
-                sectionId: student.sectionId,
+                section: {
+                    students: {
+                        some: { id: studentId }
+                    }
+                }
+            },
+            status: "PUBLISHED",
+            dueDate: {
+                gte: new Date(),
             },
         },
         include: {
             class: {
-                include: {
-                    teacher: {
-                        include: {
-                            user: {
-                                select: {
-                                    firstName: true,
-                                    lastName: true,
-                                },
-                            },
-                        },
-                    },
+                select: {
+                    subjectName: true,
                 },
             },
             submissions: {
                 where: {
-                    studentId: student.id,
+                    studentId: studentId,
                 },
             },
         },
         orderBy: {
             dueDate: 'asc',
         },
+        take: 10,
     });
 
-    // Get learning materials separately
-    const learningMaterials = await prisma.learningMaterial.findMany({
-        where: {
-            class: {
-                sectionId: student.sectionId,
-            },
-        },
-        orderBy: {
-            createdAt: 'desc',
-        },
-        take: 5,
-    });
-
-    // Process classes into class data
-    const classes = student.section.classes.map(classItem => {
-        const classAssignments = assignments.filter(assignment => assignment.classId === classItem.id);
-        const classMaterials = learningMaterials.filter(material => material.classId === classItem.id);
-
-        // Calculate progress for this class
-        const totalAssignments = classAssignments.length;
-        const submittedAssignments = classAssignments.filter(assignment => {
-            const submission = assignment.submissions.find(sub => sub.studentId === student.id);
-            return submission && submission.status !== 'NOT_SUBMITTED';
-        }).length;
-
-        const progress = totalAssignments > 0 ? (submittedAssignments / totalAssignments) * 100 : 0;
-
-        // Get upcoming assignments
+    // Format upcoming tasks
+    const upcomingTasks = assignments.map(assignment => {
+        const submission = assignment.submissions[0];
         const now = new Date();
-        const upcomingAssignments = classAssignments
-            .filter(assignment => assignment.dueDate > now)
-            .slice(0, 3);
+        const dueDate = new Date(assignment.dueDate);
+        const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+        let status: 'PENDING' | 'SUBMITTED' | 'OVERDUE' = 'PENDING';
+        if (submission && submission.status !== 'NOT_SUBMITTED') {
+            status = 'SUBMITTED';
+        } else if (dueDate < now) {
+            status = 'OVERDUE';
+        }
+
+        let priority: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
+        if (daysUntilDue <= 1) priority = 'HIGH';
+        else if (daysUntilDue <= 3) priority = 'MEDIUM';
 
         return {
-            id: classItem.id,
-            name: classItem.subjectName,
-            teacher: `${classItem.teacher.user.firstName} ${classItem.teacher.user.lastName}`,
-            progress,
-            totalAssignments,
-            submittedAssignments,
-            resourceCount: classMaterials.length,
-            upcomingAssignments,
-            color: getClassColor(classItem.subjectName),
+            id: assignment.id,
+            title: assignment.title,
+            type: 'ASSIGNMENT' as const,
+            dueDate: assignment.dueDate,
+            subject: assignment.class.subjectName,
+            subjectColor: getClassColor(assignment.class.subjectName),
+            status,
+            priority,
         };
     });
 
-    // Get all upcoming deadlines across all classes
-    const allUpcomingAssignments = assignments
-        .filter(assignment => {
-            const submission = assignment.submissions.find(sub => sub.studentId === student.id);
-            return assignment.dueDate > new Date() && (!submission || submission.status === 'NOT_SUBMITTED');
-        })
-        .map(assignment => ({
-            ...assignment,
-            className: assignment.class.subjectName,
-            classColor: getClassColor(assignment.class.subjectName),
-        }))
-        .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
-        .slice(0, 10);
-
-    // Get recent activity (announcements + new materials)
+    // Get recent activity (announcements, materials, grades)
     const recentAnnouncements = await prisma.announcement.findMany({
         where: {
             OR: [
                 { classId: null },
-                { class: { sectionId: student.sectionId } }
+                {
+                    class: {
+                        section: {
+                            students: {
+                                some: { id: studentId }
+                            }
+                        }
+                    }
+                }
             ]
         },
         include: {
+            class: {
+                select: {
+                    subjectName: true,
+                },
+            },
             teacher: {
                 include: {
                     user: {
@@ -177,6 +223,24 @@ export default async function StudentDashboardPage() {
                     },
                 },
             },
+        },
+        orderBy: {
+            createdAt: 'desc',
+        },
+        take: 5,
+    });
+
+    const recentMaterials = await prisma.learningMaterial.findMany({
+        where: {
+            class: {
+                section: {
+                    students: {
+                        some: { id: studentId }
+                    }
+                }
+            }
+        },
+        include: {
             class: {
                 select: {
                     subjectName: true,
@@ -189,110 +253,49 @@ export default async function StudentDashboardPage() {
         take: 5,
     });
 
-    return (
-        <div className="container mx-auto p-6 max-w-7xl">
-            {/* Welcome Header */}
-            <div className="mb-8">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900">
-                            Welcome back, {student.user.firstName}!
-                        </h1>
-                        <p className="text-gray-600 mt-2">
-                            Grade {student.section.gradeLevel} • {student.section.name}
-                        </p>
-                    </div>
-                    <div className="text-right">
-                        <div className="text-sm text-gray-500">Today is</div>
-                        <div className="text-lg font-semibold text-gray-900">
-                            {new Date().toLocaleDateString('en-US', {
-                                weekday: 'long',
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
-                            })}
-                        </div>
-                    </div>
-                </div>
-            </div>
+    // Format recent activity
+    const recentActivity = [
+        ...recentAnnouncements.map(announcement => ({
+            id: announcement.id,
+            type: 'ANNOUNCEMENT' as const,
+            title: announcement.title,
+            description: `New announcement in ${announcement.class?.subjectName || 'General'}`,
+            subject: announcement.class?.subjectName || 'General',
+            timestamp: announcement.createdAt,
+            link: `/student/subjects/${announcement.classId || 'general'}`,
+        })),
+        ...recentMaterials.map(material => ({
+            id: material.id,
+            type: 'MATERIAL' as const,
+            title: material.title,
+            description: `New material uploaded in ${material.class?.subjectName}`,
+            subject: material.class?.subjectName || 'Unknown',
+            timestamp: material.createdAt,
+            link: `/student/subjects/${material.classId}`,
+        })),
+    ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 8);
 
-            {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                <Link
-                    href="/student/dashboard/assignments"
-                    className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow border border-gray-200"
-                >
-                    <div className="flex items-center">
-                        <div className="flex-shrink-0 h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                        </div>
-                        <div className="ml-4">
-                            <h3 className="text-lg font-semibold text-gray-900">My Homework</h3>
-                            <p className="text-sm text-gray-500">View assignments</p>
-                        </div>
-                    </div>
-                </Link>
+    // Calculate stats
+    const totalPending = upcomingTasks.filter(task => task.status === 'PENDING').length;
+    const overdueCount = upcomingTasks.filter(task => task.status === 'OVERDUE').length;
 
-                <Link
-                    href="/student/dashboard/materials"
-                    className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow border border-gray-200"
-                >
-                    <div className="flex items-center">
-                        <div className="flex-shrink-0 h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                            <svg className="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                        </div>
-                        <div className="ml-4">
-                            <h3 className="text-lg font-semibold text-gray-900">Learning Materials</h3>
-                            <p className="text-sm text-gray-500">Class resources</p>
-                        </div>
-                    </div>
-                </Link>
+    // Mock data for demo - in real app, calculate from actual grades
+    const averageGrade = 85;
+    const completedThisWeek = 3;
 
-                <Link
-                    href="/student/dashboard/schedule"
-                    className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow border border-gray-200"
-                >
-                    <div className="flex items-center">
-                        <div className="flex-shrink-0 h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-                            <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <div className="ml-4">
-                            <h3 className="text-lg font-semibold text-gray-900">My Schedule</h3>
-                            <p className="text-sm text-gray-500">Class timetable</p>
-                        </div>
-                    </div>
-                </Link>
-            </div>
-
-            {/* Quick Stats Row */}
-            <QuickStats classes={classes} />
-
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-6">
-                {/* Left Column - Class Progress */}
-                <div className="xl:col-span-2">
-                    <ClassProgressGrid classes={classes} />
-                </div>
-
-                {/* Right Column - Sidebar */}
-                <div className="space-y-6">
-                    <UpcomingDeadlines assignments={allUpcomingAssignments} />
-                    <RecentActivityFeed
-                        announcements={recentAnnouncements}
-                        studentId={student.id}
-                    />
-                </div>
-            </div>
-        </div>
-    );
+    return {
+        upcomingTasks,
+        recentActivity,
+        stats: {
+            totalPending,
+            overdueCount,
+            averageGrade,
+            completedThisWeek,
+        },
+    };
 }
 
-// Helper function to assign consistent colors to classes
+// Reuse helper functions from home page
 function getClassColor(subjectName: string): string {
     const colorMap: { [key: string]: string } = {
         mathematics: 'blue',
@@ -310,7 +313,6 @@ function getClassColor(subjectName: string): string {
         pe: 'teal',
         sports: 'teal',
     };
-
     const normalizedName = subjectName.toLowerCase();
     return colorMap[normalizedName] || 'gray';
 }
