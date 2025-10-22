@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ParentNav } from "@/components/parent/dashboard/ParentNav";
+import { Footer } from "@/components/Footer";
 
 const geist = Geist({
     subsets: ["latin"],
@@ -13,11 +14,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-    title: "Parent Dashboard - LearnScape",
+    title: "Parent Portal - LearnScape",
     description: "Monitor your children's academic progress",
 };
 
-export default function ParentDashboardLayout({
+export default function ParentLayout({
     children,
 }: {
     children: React.ReactNode;
@@ -26,6 +27,7 @@ export default function ParentDashboardLayout({
         <div className={`${geist.variable} ${geistMono.variable} font-sans`}>
             <ParentNav />
             <main>{children}</main>
+            <Footer />
         </div>
     );
 }
