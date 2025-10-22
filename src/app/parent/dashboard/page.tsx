@@ -1,26 +1,95 @@
-// src/app/parent/dashboard/page.tsx - Updated version
 import { requireSession } from "@/lib/session";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { StudentOverview } from "@/components/parent/dashboard/StudentOverview";
-import { IncompleteTasksAlerts } from "@/components/parent/dashboard/IncompleteTasksAlerts";
-import { RecentAnnouncements } from "@/components/parent/dashboard/RecentAnnouncements";
-import { AttendanceSummary } from "@/components/parent/dashboard/AttendanceSummary";
 import { AlertSystem } from "@/components/parent/dashboard/AlertSystem";
+import { AttendanceSummary } from "@/components/parent/dashboard/AttendanceSummary";
+import { UpcomingDeadlines } from "@/components/parent/dashboard/UpcomingDeadlines";
+import { RecentAnnouncements } from "@/components/parent/dashboard/RecentAnnouncements";
+
+interface DashboardData {
+    students: Array<{
+        id: string;
+        studentNumber: string;
+        user: {
+            firstName: string;
+            lastName: string;
+            email: string;
+        };
+        section: {
+            gradeLevel: number;
+            name: string;
+        };
+        attendance: Array<{
+            date: Date;
+            status: string;
+        }>;
+        grades: Array<{
+            score: number;
+            class: {
+                subjectName: string;
+            };
+        }>;
+    }>;
+    assignments: Array<{
+        id: string;
+        title: string;
+        description?: string | null; // Make description optional here too
+        dueDate: Date;
+        maxScore: number | null;
+        status: string;
+        class: {
+            subjectName: string;
+            teacher: {
+                user: {
+                    firstName: string;
+                    lastName: string;
+                };
+            };
+            section: {
+                gradeLevel: number;
+                name: string;
+            };
+        };
+        submissions: Array<{
+            studentId: string;
+            status: string;
+            submittedAt: Date | null;
+        }>;
+    }>;
+    announcements: Array<{
+        id: string;
+        title: string;
+        content: string;
+        createdAt: Date;
+        teacher: {
+            user: {
+                firstName: string;
+                lastName: string;
+            };
+        };
+        class: {
+            subjectName: string;
+            section: {
+                gradeLevel: number;
+                name: string;
+            };
+        } | null;
+    }>;
+    alerts: Array<{
+        id: string;
+        message: string;
+        viewed: boolean;
+        createdAt: Date;
+    }>;
+}
 
 export default async function ParentDashboardPage() {
-    const session = await requireSession(["PARENT", "ADMIN"]);
+    const session = await requireSession(['PARENT']);
 
-    // Get parent with students and their details
-    const parent = await prisma.parent.findFirst({
+    const parent = await prisma.parent.findUnique({
         where: { userId: session.user.id },
         include: {
-            user: {
-                select: {
-                    firstName: true,
-                    lastName: true,
-                },
-            },
             students: {
                 include: {
                     user: {
@@ -30,17 +99,12 @@ export default async function ParentDashboardPage() {
                             email: true,
                         },
                     },
-                    section: {
-                        select: {
-                            gradeLevel: true,
-                            name: true,
-                        },
-                    },
+                    section: true,
                     attendance: {
-                        take: 10,
-                        orderBy: {
-                            date: 'desc',
-                        },
+                        take: 30, // Last 30 days
+                        orderBy: { date: 'desc' },
+                    },
+                    grades: {
                         include: {
                             class: {
                                 select: {
@@ -51,18 +115,15 @@ export default async function ParentDashboardPage() {
                     },
                 },
             },
+            alerts: {
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+            },
         },
     });
 
     if (!parent) {
-        return (
-            <div className="container mx-auto p-6">
-                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                    <h2 className="text-lg font-semibold text-red-800">Parent Record Not Found</h2>
-                    <p className="text-red-600">We couldn't find your parent information.</p>
-                </div>
-            </div>
-        );
+        return <div>Parent not found</div>;
     }
 
     // Get assignments for all students
@@ -74,14 +135,12 @@ export default async function ParentDashboardPage() {
                 section: {
                     students: {
                         some: {
-                            id: {
-                                in: studentIds,
-                            },
+                            id: { in: studentIds },
                         },
                     },
                 },
             },
-            status: "PUBLISHED",
+            status: 'PUBLISHED',
         },
         include: {
             class: {
@@ -96,40 +155,30 @@ export default async function ParentDashboardPage() {
                             },
                         },
                     },
-                    section: {
-                        select: {
-                            gradeLevel: true,
-                            name: true,
-                        },
-                    },
+                    section: true,
                 },
             },
             submissions: {
                 where: {
-                    studentId: {
-                        in: studentIds,
-                    },
+                    studentId: { in: studentIds },
                 },
             },
         },
-        orderBy: {
-            dueDate: 'asc',
-        },
+        orderBy: { dueDate: 'asc' },
+        take: 10,
     });
 
     // Get recent announcements
-    const recentAnnouncements = await prisma.announcement.findMany({
+    const announcements = await prisma.announcement.findMany({
         where: {
             OR: [
-                { classId: null }, // School-wide announcements
+                { class: null }, // School-wide announcements
                 {
                     class: {
                         section: {
                             students: {
                                 some: {
-                                    id: {
-                                        in: studentIds,
-                                    },
+                                    id: { in: studentIds },
                                 },
                             },
                         },
@@ -149,53 +198,72 @@ export default async function ParentDashboardPage() {
                 },
             },
             class: {
-                select: {
-                    subjectName: true,
+                include: {
+                    section: true,
                 },
             },
         },
-        orderBy: {
-            createdAt: 'desc',
-        },
+        orderBy: { createdAt: 'desc' },
         take: 5,
     });
 
+    const dashboardData: DashboardData = {
+        students: parent.students,
+        assignments,
+        announcements,
+        alerts: parent.alerts,
+    };
+
     return (
-        <div className="container mx-auto p-6 max-w-7xl">
-            {/* Welcome Header */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900">
-                    Welcome back, {parent.user.firstName}!
-                </h1>
-                <p className="text-gray-600 mt-2">
-                    Monitoring {parent.students.length} student{parent.students.length !== 1 ? 's' : ''}
-                </p>
-            </div>
-
-            {/* Alert System - NEW */}
-            <AlertSystem parentId={parent.id} />
-
-            {/* Student Overview */}
-            <div className="mb-8">
-                <StudentOverview students={parent.students} assignments={assignments} />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Left Column */}
-                <div className="space-y-6">
-                    <IncompleteTasksAlerts
-                        students={parent.students}
-                        assignments={assignments}
-                    />
-                    <AttendanceSummary students={parent.students} />
+        <div className="min-h-screen bg-gray-50">
+            <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                {/* Header */}
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold text-gray-900">
+                        Parent Dashboard
+                    </h1>
+                    <p className="text-gray-600 mt-2">
+                        Overview of your children's academic progress
+                    </p>
                 </div>
 
-                {/* Right Column */}
-                <div className="space-y-6">
-                    <RecentAnnouncements
-                        announcements={recentAnnouncements}
-                        students={parent.students}
+                {/* Alert System */}
+                <div className="mb-8">
+                    <AlertSystem
+                        parentId={parent.id}
+                        initialAlerts={dashboardData.alerts}
                     />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left Column */}
+                    <div className="lg:col-span-2 space-y-6">
+                        {/* Student Overview */}
+                        <StudentOverview
+                            students={dashboardData.students}
+                            assignments={dashboardData.assignments}
+                        />
+
+                        {/* Upcoming Deadlines */}
+                        <UpcomingDeadlines
+                            assignments={dashboardData.assignments}
+                            students={dashboardData.students}
+                        />
+                    </div>
+
+                    {/* Right Column */}
+                    <div className="space-y-6">
+                        {/* Attendance Summary */}
+                        <AttendanceSummary
+                            students={dashboardData.students}
+                        />
+
+                        {/* Recent Announcements */}
+                        <RecentAnnouncements
+                            announcements={dashboardData.announcements}
+                            students={dashboardData.students}
+                        />
+                    </div>
                 </div>
             </div>
         </div>

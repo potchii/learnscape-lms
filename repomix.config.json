@@ -1,0 +1,16 @@
+{
+    "output": {
+        "style": "markdown",
+        "filePath": "custom-output.md",
+        "removeComments": true,
+        "compress": true,
+        "showLineNumbers": true,
+        "topFilesLength": 10
+    },
+    "ignore": {
+        "customPatterns": [
+            "*.test.ts",
+            "docs/**"
+        ]
+    }
+}

@@ -1,19 +1,20 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ParentNav } from "@/components/parent/dashboard/ParentNav";
 
-const geistSans = Geist({
-    variable: "--font-geist-sans",
+const geist = Geist({
     subsets: ["latin"],
+    variable: "--font-geist",
 });
 
 const geistMono = Geist_Mono({
-    variable: "--font-geist-mono",
     subsets: ["latin"],
+    variable: "--font-geist-mono",
 });
 
 export const metadata: Metadata = {
-    title: "Parent Dashboard | LearnScape",
-    description: "Parent dashboard interface for LearnScape system",
+    title: "Parent Dashboard - LearnScape",
+    description: "Monitor your children's academic progress",
 };
 
 export default function ParentDashboardLayout({
@@ -22,8 +23,9 @@ export default function ParentDashboardLayout({
     children: React.ReactNode;
 }) {
     return (
-        <div className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
-            {children}
+        <div className={`${geist.variable} ${geistMono.variable} font-sans`}>
+            <ParentNav />
+            <main>{children}</main>
         </div>
     );
 }

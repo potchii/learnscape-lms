@@ -1,29 +1,30 @@
-// src/app/api/parent/alerts/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/session";
-import { AlertService } from "@/lib/alert-service";
 import prisma from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
     try {
-        const session = await requireSession(["PARENT", "ADMIN"]);
+        const session = await requireSession(['PARENT']);
 
-        // Get parent record
-        const parent = await prisma.parent.findFirst({
-            where: { userId: session.user.id }
+        const parent = await prisma.parent.findUnique({
+            where: { userId: session.user.id },
+            include: {
+                alerts: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 50,
+                },
+            },
         });
 
         if (!parent) {
             return NextResponse.json({ error: "Parent not found" }, { status: 404 });
         }
 
-        const alerts = await AlertService.getParentAlerts(parent.id);
-
-        return NextResponse.json({ alerts });
+        return NextResponse.json({ alerts: parent.alerts });
     } catch (error) {
         console.error("Error fetching alerts:", error);
         return NextResponse.json(
-            { error: "Failed to fetch alerts" },
+            { error: "Internal server error" },
             { status: 500 }
         );
     }
@@ -31,24 +32,27 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const session = await requireSession(["PARENT", "ADMIN"]);
-        const { action, alertId } = await request.json();
+        const session = await requireSession(['PARENT']);
+        const { action, alertId, parentId } = await request.json();
 
-        const parent = await prisma.parent.findFirst({
-            where: { userId: session.user.id }
-        });
+        if (action === 'mark-viewed' && alertId) {
+            await prisma.alert.update({
+                where: { id: alertId },
+                data: { viewed: true },
+            });
 
-        if (!parent) {
-            return NextResponse.json({ error: "Parent not found" }, { status: 404 });
-        }
-
-        if (action === "markAllViewed") {
-            await AlertService.markAllAlertsAsViewed(parent.id);
             return NextResponse.json({ success: true });
         }
 
-        if (action === "markViewed" && alertId) {
-            await AlertService.markAlertAsViewed(alertId);
+        if (action === 'mark-all-viewed' && parentId) {
+            await prisma.alert.updateMany({
+                where: {
+                    parentId,
+                    viewed: false,
+                },
+                data: { viewed: true },
+            });
+
             return NextResponse.json({ success: true });
         }
 
@@ -56,7 +60,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error("Error updating alerts:", error);
         return NextResponse.json(
-            { error: "Failed to update alerts" },
+            { error: "Internal server error" },
             { status: 500 }
         );
     }

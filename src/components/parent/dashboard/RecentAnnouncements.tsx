@@ -1,7 +1,26 @@
-import { Announcement, Student } from "@prisma/client";
 import Link from "next/link";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Bell, Megaphone, BookOpen, School, Calendar } from "lucide-react";
 
-interface AnnouncementWithDetails extends Announcement {
+interface Student {
+    id: string;
+    user: {
+        firstName: string;
+        lastName: string;
+    };
+    section: {
+        gradeLevel: number;
+        name: string;
+    };
+}
+
+interface Announcement {
+    id: string;
+    title: string;
+    content: string;
+    createdAt: Date;
     teacher: {
         user: {
             firstName: string;
@@ -10,128 +29,191 @@ interface AnnouncementWithDetails extends Announcement {
     };
     class: {
         subjectName: string;
+        section: {
+            gradeLevel: number;
+            name: string;
+        };
     } | null;
 }
 
 interface RecentAnnouncementsProps {
-    announcements: AnnouncementWithDetails[];
+    announcements: Announcement[];
     students: Student[];
 }
 
 export function RecentAnnouncements({ announcements, students }: RecentAnnouncementsProps) {
-    const getAnnouncementType = (announcement: AnnouncementWithDetails) => {
-        if (!announcement.class) return 'school';
-        return 'class';
-    };
-
-    const getTypeColor = (type: string) => {
-        switch (type) {
-            case 'school':
-                return 'bg-blue-100 text-blue-800 border-blue-200';
-            case 'class':
-                return 'bg-green-100 text-green-800 border-green-200';
-            default:
-                return 'bg-gray-100 text-gray-800 border-gray-200';
-        }
+    const getAnnouncementType = (announcement: Announcement) => {
+        if (!announcement.class) return 'SCHOOL_WIDE';
+        return 'CLASS_SPECIFIC';
     };
 
     const getTypeIcon = (type: string) => {
-        switch (type) {
-            case 'school':
-                return '🏫';
-            case 'class':
-                return '📚';
-            default:
-                return '📢';
-        }
+        if (type === 'SCHOOL_WIDE') return <School className="h-4 w-4 text-blue-500" />;
+        return <BookOpen className="h-4 w-4 text-green-500" />;
     };
 
-    const formatContentPreview = (content: string) => {
-        // Remove markdown and HTML tags for preview
-        const plainText = content.replace(/[#*\[\]()>`]/g, '').replace(/\n/g, ' ');
-        return plainText.length > 100 ? plainText.substring(0, 100) + '...' : plainText;
+    const getTypeColor = (type: string) => {
+        if (type === 'SCHOOL_WIDE') return 'text-blue-600 bg-blue-100';
+        return 'text-green-600 bg-green-100';
     };
+
+    const getTypeText = (type: string) => {
+        if (type === 'SCHOOL_WIDE') return 'School Announcement';
+        return 'Class Announcement';
+    };
+
+    const isRelevantToStudent = (announcement: Announcement, student: Student) => {
+        if (!announcement.class) return true; // School-wide announcements are relevant to all
+
+        return (
+            announcement.class.section.gradeLevel === student.section.gradeLevel &&
+            announcement.class.section.name === student.section.name
+        );
+    };
+
+    const getRelevantStudents = (announcement: Announcement) => {
+        return students.filter(student => isRelevantToStudent(announcement, student));
+    };
+
+    const formatContentPreview = (content: string, maxLength: number = 100): string => {
+        // Remove HTML tags and get plain text
+        const plainText = content.replace(/<[^>]*>/g, '');
+
+        if (plainText.length <= maxLength) return plainText;
+        return plainText.substring(0, maxLength) + '...';
+    };
+
+    const formatTimeAgo = (date: Date): string => {
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / (1000 * 60));
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays === 1) return 'Yesterday';
+        if (diffDays < 7) return `${diffDays}d ago`;
+
+        return date.toLocaleDateString();
+    };
+
+    if (announcements.length === 0) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Megaphone className="h-5 w-5" />
+                        Recent Announcements
+                    </CardTitle>
+                    <CardDescription>
+                        Latest updates from school and teachers
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-center py-8 text-gray-500">
+                        <Bell className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                        <p>No recent announcements</p>
+                        <p className="text-sm mt-1">Check back later for updates</p>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
-        <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                <div>
-                    <h2 className="text-xl font-semibold text-gray-900">Recent Announcements</h2>
-                    <p className="text-sm text-gray-600 mt-1">Latest updates from school and teachers</p>
-                </div>
-                <Link
-                    href="/parent/announcements"
-                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                >
-                    View All
-                </Link>
-            </div>
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Megaphone className="h-5 w-5" />
+                    Recent Announcements
+                </CardTitle>
+                <CardDescription>
+                    Latest updates from school and teachers
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-4">
+                    {announcements.slice(0, 5).map((announcement) => {
+                        const type = getAnnouncementType(announcement);
+                        const relevantStudents = getRelevantStudents(announcement);
 
-            <div className="p-6">
-                {announcements.length > 0 ? (
-                    <div className="space-y-4">
-                        {announcements.map((announcement) => {
-                            const type = getAnnouncementType(announcement);
+                        return (
+                            <div
+                                key={announcement.id}
+                                className="p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                            >
+                                {/* Header */}
+                                <div className="flex items-start justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        {getTypeIcon(type)}
+                                        <h4 className="font-semibold text-sm text-gray-900">
+                                            {announcement.title}
+                                        </h4>
+                                    </div>
+                                    <Badge
+                                        variant="secondary"
+                                        className={`text-xs ${getTypeColor(type)}`}
+                                    >
+                                        {getTypeText(type)}
+                                    </Badge>
+                                </div>
 
-                            return (
-                                <div
-                                    key={announcement.id}
-                                    className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors"
-                                >
-                                    <div className="flex items-start justify-between mb-2">
-                                        <div className="flex items-center space-x-3">
-                                            <span className="text-lg">{getTypeIcon(type)}</span>
-                                            <h3 className="text-lg font-semibold text-gray-900">{announcement.title}</h3>
+                                {/* Content Preview */}
+                                <p className="text-sm text-gray-600 mb-3">
+                                    {formatContentPreview(announcement.content)}
+                                </p>
+
+                                {/* Meta Information */}
+                                <div className="flex items-center justify-between text-xs text-gray-500">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-1">
+                                            <span className="font-medium">From:</span>
+                                            <span>
+                                                {announcement.teacher.user.firstName} {announcement.teacher.user.lastName}
+                                            </span>
                                         </div>
-                                        <span className="text-sm text-gray-500">
-                                            {announcement.createdAt.toLocaleDateString()}
-                                        </span>
-                                    </div>
 
-                                    <div className="flex items-center space-x-4 mb-3 text-sm text-gray-600">
-                                        <span className="font-medium">
-                                            {announcement.teacher.user.firstName} {announcement.teacher.user.lastName}
-                                        </span>
                                         {announcement.class && (
-                                            <>
-                                                <span>•</span>
+                                            <div className="flex items-center gap-1">
+                                                <span className="font-medium">Class:</span>
                                                 <span>{announcement.class.subjectName}</span>
-                                            </>
+                                            </div>
                                         )}
-                                        <span>•</span>
-                                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getTypeColor(type)}`}>
-                                            {type.charAt(0).toUpperCase() + type.slice(1)}
-                                        </span>
+
+                                        {/* Relevant Students */}
+                                        {relevantStudents.length > 0 && relevantStudents.length < students.length && (
+                                            <div className="flex items-center gap-1">
+                                                <span className="font-medium">For:</span>
+                                                <span>
+                                                    {relevantStudents.map(s => s.user.firstName).join(', ')}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
 
-                                    <p className="text-gray-700 text-sm leading-relaxed">
-                                        {formatContentPreview(announcement.content)}
-                                    </p>
-
-                                    <div className="mt-3 flex justify-between items-center text-xs text-gray-500">
-                                        <span>
-                                            {announcement.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                        <button className="text-blue-600 hover:text-blue-800 font-medium">
-                                            Read More
-                                        </button>
+                                    <div className="flex items-center gap-1 text-right">
+                                        <Calendar className="h-3 w-3" />
+                                        <span>{formatTimeAgo(new Date(announcement.createdAt))}</span>
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-                ) : (
-                    <div className="text-center py-8">
-                        <div className="text-gray-400 mb-4">
-                            <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                            </svg>
-                        </div>
-                        <p className="text-gray-500">No recent announcements</p>
-                        <p className="text-gray-400 text-sm mt-1">Check back later for updates</p>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* View All Link */}
+                {announcements.length > 5 && (
+                    <div className="mt-4 pt-4 border-t">
+                        <Link href="/parent/announcements">
+                            <Button variant="outline" size="sm" className="w-full">
+                                View All Announcements
+                            </Button>
+                        </Link>
                     </div>
                 )}
-            </div>
-        </div>
+            </CardContent>
+        </Card>
     );
 }
