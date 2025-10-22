@@ -22,6 +22,12 @@ export default async function MaterialsPage({ params }: Props) {
             },
         },
         include: {
+            section: {
+                select: {
+                    gradeLevel: true,
+                    name: true,
+                },
+            },
             learningMaterials: {
                 include: {
                     teacher: {
@@ -73,7 +79,13 @@ export default async function MaterialsPage({ params }: Props) {
                     <div>
                         <h1 className="text-3xl font-bold text-gray-900">Learning Materials</h1>
                         <p className="text-gray-600 mt-2">
-                            {classData.subjectName} - Grade {classData.section.gradeLevel} - {classData.section.name}
+                            {classData.subjectName}
+                            {classData.section && (
+                                <> - Grade {classData.section.gradeLevel} - {classData.section.name}</>
+                            )}
+                        </p>
+                        <p className="text-gray-500 text-sm mt-1">
+                            {classData.learningMaterials.length} material{classData.learningMaterials.length !== 1 ? 's' : ''}
                         </p>
                     </div>
                     <Link
