@@ -19,7 +19,6 @@ export default function TeacherLayout({
     children: React.ReactNode
 }) {
     return (
-        // Remove <html> and <body> tags - just return the content directly
         <div className={`${geist.className} ${geistMono.className} min-h-screen bg-gray-50`}>
             <TeacherNav />
             <main className="min-h-screen">

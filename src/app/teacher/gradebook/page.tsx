@@ -55,7 +55,7 @@ export default async function GradebookPage() {
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-gray-900">Gradebook</h1>
                 <p className="text-gray-600 mt-2">
-                    Welcome back, {teacher.user.firstName}! Manage grades for your classes and subjects.
+                    Manage grades for your classes and subjects.
                 </p>
             </div>
 

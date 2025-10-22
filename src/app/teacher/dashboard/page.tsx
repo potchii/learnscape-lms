@@ -184,7 +184,7 @@ export default async function TeacherDashboardPage() {
                         <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
                         <div className="space-y-3">
                             <Link
-                                href="/teacher/announcements/create"
+                                href="/teacher/announcements/new"
                                 className="flex items-center space-x-2 w-full p-3 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                             >
                                 <span className="text-xl">📢</span>

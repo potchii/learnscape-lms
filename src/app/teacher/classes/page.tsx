@@ -96,7 +96,7 @@ export default async function TeacherClassesPage() {
                                 Manage Class
                             </Link>
                             <Link
-                                href={`/teacher/classes/${classItem.id}/grades`}
+                                href={`/teacher/gradebook/${classItem.id}/`}
                                 className="flex-1 border border-gray-300 text-gray-700 text-center py-2 px-4 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
                             >
                                 View Grades
