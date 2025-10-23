@@ -11,7 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { School, Eye, EyeOff } from "lucide-react";
+import { School, Eye, EyeOff, GraduationCap } from "lucide-react";
 
 const SignupSchema = z.object({
     email: z.string().email("Please enter a valid email address"),
@@ -24,12 +24,22 @@ const SignupSchema = z.object({
     birthdate: z.string().min(1, "Birthdate is required"),
     address: z.string().min(1, "Address is required"),
     phoneNumber: z.string().optional(),
+    gradeLevel: z.string().min(1, "Please select a grade level"),
 }).refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
     path: ["confirmPassword"],
 });
 
 type SignupInput = z.infer<typeof SignupSchema>;
+
+const gradeLevels = [
+    { value: "GRADE_1", label: "Grade 1" },
+    { value: "GRADE_2", label: "Grade 2" },
+    { value: "GRADE_3", label: "Grade 3" },
+    { value: "GRADE_4", label: "Grade 4" },
+    { value: "GRADE_5", label: "Grade 5" },
+    { value: "GRADE_6", label: "Grade 6" },
+];
 
 export default function SignupPage() {
     const router = useRouter();
@@ -47,6 +57,12 @@ export default function SignupPage() {
 
     const onSubmit = async (data: SignupInput) => {
         try {
+            // Create personal info object with grade level
+            const personalInfo = JSON.stringify({
+                gradeLevel: data.gradeLevel,
+                appliedGrade: gradeLevels.find(g => g.value === data.gradeLevel)?.label,
+            });
+
             const response = await fetch('/api/signup', {
                 method: 'POST',
                 headers: {
@@ -63,6 +79,7 @@ export default function SignupPage() {
                     address: data.address,
                     phoneNumber: data.phoneNumber || null,
                     role: "APPLICANT",
+                    personalInfo: personalInfo,
                 }),
             });
 
@@ -167,6 +184,28 @@ export default function SignupPage() {
                                     <p className="text-red-500 text-sm">{errors.birthdate.message}</p>
                                 )}
                             </div>
+                        </div>
+
+                        {/* Grade Level Selection */}
+                        <div className="space-y-2">
+                            <Label htmlFor="gradeLevel" className="flex items-center space-x-2">
+                                <GraduationCap className="h-4 w-4" />
+                                <span>Applying for Grade Level *</span>
+                            </Label>
+                            <select
+                                {...register("gradeLevel")}
+                                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                <option value="">Select grade level</option>
+                                {gradeLevels.map((grade) => (
+                                    <option key={grade.value} value={grade.value}>
+                                        {grade.label}
+                                    </option>
+                                ))}
+                            </select>
+                            {errors.gradeLevel && (
+                                <p className="text-red-500 text-sm">{errors.gradeLevel.message}</p>
+                            )}
                         </div>
 
                         {/* Contact Information */}

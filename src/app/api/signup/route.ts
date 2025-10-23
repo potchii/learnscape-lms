@@ -2,8 +2,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateHumanId } from "@/lib/idGenerator";
-
-// Import bcryptjs instead of bcrypt for better compatibility
 import bcryptjs from 'bcryptjs';
 
 export async function POST(req: Request) {
@@ -19,7 +17,16 @@ export async function POST(req: Request) {
             address,
             phoneNumber,
             role,
+            personalInfo,
         } = await req.json();
+
+        console.log('Received signup data:', {
+            email,
+            firstName,
+            lastName,
+            role,
+            personalInfo
+        });
 
         // Validate required fields
         if (!email || !password || !firstName || !lastName || !gender || !birthdate || !address) {
@@ -44,58 +51,92 @@ export async function POST(req: Request) {
         // Hash password
         const passwordHash = await bcryptjs.hash(password, 12);
 
-        // Generate applicant number if role is APPLICANT
-        let applicantNumber;
+        // Handle APPLICANT role differently
         if (role === "APPLICANT") {
-            applicantNumber = await generateHumanId("APPLICANT");
-        }
+            // Generate applicant number
+            const applicantNumber = await generateHumanId("APPLICANT");
 
-        // Create user
-        const user = await prisma.user.create({
-            data: {
-                email,
-                passwordHash,
-                firstName,
-                middleName,
-                lastName,
-                gender,
-                birthdate: new Date(birthdate),
-                address,
-                phoneNumber,
-                role,
-                ...(role === "APPLICANT" && {
-                    applicant: {
-                        create: {
-                            applicantNumber,
-                            referenceCode: `REF-${applicantNumber}`,
-                            status: "PENDING",
-                            type: "NEW",
-                        },
+            // Create user with applicant in a single transaction
+            const result = await prisma.$transaction(async (tx) => {
+                // First create the user
+                const user = await tx.user.create({
+                    data: {
+                        email,
+                        passwordHash,
+                        firstName,
+                        middleName,
+                        lastName,
+                        gender,
+                        birthdate: new Date(birthdate),
+                        address,
+                        phoneNumber,
+                        role,
                     },
-                }),
-            },
-            include: {
-                applicant: role === "APPLICANT",
-            },
-        });
+                });
 
-        return NextResponse.json(
-            {
-                message: "User created successfully",
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    firstName: user.firstName,
-                    lastName: user.lastName,
-                    role: user.role,
-                    ...(user.applicant && {
-                        applicantNumber: user.applicant.applicantNumber,
-                        referenceCode: user.applicant.referenceCode,
-                    }),
-                }
-            },
-            { status: 201 }
-        );
+                // Then create the applicant record
+                const applicant = await tx.applicant.create({
+                    data: {
+                        userId: user.id,
+                        applicantNumber,
+                        referenceCode: `REF-${applicantNumber}`,
+                        status: "PENDING",
+                        type: "NEW",
+                        personalInfo: personalInfo,
+                    },
+                });
+
+                return { user, applicant };
+            });
+
+            console.log('Created applicant:', result);
+
+            return NextResponse.json(
+                {
+                    message: "Applicant created successfully",
+                    user: {
+                        id: result.user.id,
+                        email: result.user.email,
+                        firstName: result.user.firstName,
+                        lastName: result.user.lastName,
+                        role: result.user.role,
+                        applicantNumber: result.applicant.applicantNumber,
+                        referenceCode: result.applicant.referenceCode,
+                    }
+                },
+                { status: 201 }
+            );
+        } else {
+            // Handle other roles (though currently only APPLICANT is allowed)
+            const user = await prisma.user.create({
+                data: {
+                    email,
+                    passwordHash,
+                    firstName,
+                    middleName,
+                    lastName,
+                    gender,
+                    birthdate: new Date(birthdate),
+                    address,
+                    phoneNumber,
+                    role,
+                },
+            });
+
+            return NextResponse.json(
+                {
+                    message: "User created successfully",
+                    user: {
+                        id: user.id,
+                        email: user.email,
+                        firstName: user.firstName,
+                        lastName: user.lastName,
+                        role: user.role,
+                    }
+                },
+                { status: 201 }
+            );
+        }
 
     } catch (error) {
         console.error("Signup error:", error);

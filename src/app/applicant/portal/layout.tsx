@@ -1,20 +1,11 @@
-// src/app/admin/dashboard/layout.tsx
+// src/app/applicant/portal/layout.tsx
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-
-const geistSans = Geist({
-    variable: "--font-geist-sans",
-    subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-    variable: "--font-geist-mono",
-    subsets: ["latin"],
-});
+import { ApplicantNav } from "@/components/applicant/ApplicantNav";
+import { Footer } from "@/components/Footer"
 
 export const metadata: Metadata = {
-    title: "Applicant Portal | LearnScape",
-    description: "Applicant Portal for LearnScape School Management System",
+    title: "Applicant Portal - LearnScape LMS",
+    description: "Manage your application for Brightfield Primary School",
 };
 
 export default function ApplicantPortalLayout({
@@ -23,8 +14,12 @@ export default function ApplicantPortalLayout({
     children: React.ReactNode;
 }) {
     return (
-        <div className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
-            {children}
-        </div>
+        <>
+            <ApplicantNav />
+            <main className="min-h-screen pt-16 bg-gray-50">
+                {children}
+            </main>
+            <Footer />
+        </>
     );
 }
