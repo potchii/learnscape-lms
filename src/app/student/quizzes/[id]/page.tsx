@@ -99,7 +99,7 @@ export default async function QuizPage({ params }: PageProps) {
                 {/* Header */}
                 <div className="flex items-center space-x-4">
                     <Button asChild variant="outline" size="sm">
-                        <Link href="/student/dashboard/quizzes">
+                        <Link href="/student/quizzes">
                             <ArrowLeft className="h-4 w-4 mr-2" />
                             Back to Quizzes
                         </Link>
@@ -201,7 +201,7 @@ export default async function QuizPage({ params }: PageProps) {
             {/* Header */}
             <div className="flex items-center space-x-4">
                 <Button asChild variant="outline" size="sm">
-                    <Link href="/student/dashboard/quizzes">
+                    <Link href="/student/quizzes">
                         <ArrowLeft className="h-4 w-4 mr-2" />
                         Back to Quizzes
                     </Link>

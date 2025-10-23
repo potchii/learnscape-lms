@@ -108,8 +108,10 @@ src/app/api/teacher/assignments/route.ts
 src/app/api/teacher/route.ts
 src/app/api/test-id-generation/route.ts
 src/app/api/upload/route.ts
+src/app/applicant/portal/application/page.tsx
 src/app/applicant/portal/layout.tsx
 src/app/applicant/portal/page.tsx
+src/app/applicant/portal/profile/page.tsx
 src/app/favicon.ico
 src/app/globals.css
 src/app/layout.tsx
@@ -128,7 +130,6 @@ src/app/parent/students/[id]/grades/page.tsx
 src/app/parent/students/[id]/page.tsx
 src/app/parent/students/[id]/schedule/page.tsx
 src/app/parent/students/page.tsx
-src/app/signup/layout.tsx
 src/app/signup/page.tsx
 src/app/student/dashboard/announcements/actions.ts
 src/app/student/dashboard/announcements/MarkAsReadButton.tsx
@@ -147,6 +148,8 @@ src/app/student/dashboard/schedule/page.tsx
 src/app/student/dashboard/schedule/WeeklySchedule.tsx
 src/app/student/layout.tsx
 src/app/student/page.tsx
+src/app/student/quizzes/[id]/page.tsx
+src/app/student/quizzes/page.tsx
 src/app/student/subjects/[id]/grades/page.tsx
 src/app/student/subjects/[id]/page.tsx
 src/app/student/subjects/[id]/participants/page.tsx
@@ -185,6 +188,7 @@ src/components/admin/section/DeleteSectionButton.tsx
 src/components/admin/section/EditSectionButton.tsx
 src/components/admin/UserAccordionItem.tsx
 src/components/AdminNav.tsx
+src/components/applicant/ApplicantNav.tsx
 src/components/Footer.tsx
 src/components/LogoutButton.tsx
 src/components/parent/dashboard/AlertList.tsx
@@ -220,6 +224,7 @@ src/components/student/dashboard/subjects/SubjectNavigation.tsx
 src/components/student/dashboard/subjects/SubjectParticipants.tsx
 src/components/student/dashboard/UpcomingDeadlines.tsx
 src/components/student/dashboard/UpcomingTasks.tsx
+src/components/student/quizzes/QuizStartForm.tsx
 src/components/teacher/assignments/AssignmentGradingForm.tsx
 src/components/teacher/classes/attendance/AttendanceHistory.tsx
 src/components/teacher/classes/attendance/TakeAttendanceForm.tsx
@@ -1423,16 +1428,40 @@ import { existsSync } from 'fs';
 export async function POST(request: NextRequest)
 ````
 
-## File: src/app/applicant/portal/layout.tsx
+## File: src/app/applicant/portal/application/page.tsx
 ````typescript
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { requireSession } from "@/lib/session";
+import prisma from "@/lib/prisma";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+    User,
+    Calendar,
+    MapPin,
+    Phone,
+    Mail,
+    Hash,
+    FileText,
+    Clock,
+    GraduationCap
+} from "lucide-react";
 ⋮----
-export default function ApplicantPortalLayout({
-    children,
-}: {
-    children: React.ReactNode;
-})
+function getAppliedGrade(personalInfo: string | null): string
+⋮----
+export default async function ApplicationPage()
+⋮----
+const calculateAge = (birthdate: Date) =>
+````
+
+## File: src/app/applicant/portal/profile/page.tsx
+````typescript
+import { requireSession } from "@/lib/session";
+import prisma from "@/lib/prisma";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { User, Mail, Phone, MapPin, Calendar } from "lucide-react";
+⋮----
+export default async function ProfilePage()
 ````
 
 ## File: src/app/parent/dashboard/assignments/page.tsx
@@ -1704,18 +1733,6 @@ const getNextClass = () =>
 {/* Right Column - Weekly Schedule */}
 ````
 
-## File: src/app/signup/layout.tsx
-````typescript
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-⋮----
-export default function SignUpPageLayout({
-    children,
-}: {
-    children: React.ReactNode;
-})
-````
-
 ## File: src/app/student/dashboard/announcements/actions.ts
 ````typescript
 import { requireSession } from "@/lib/session";
@@ -1974,6 +1991,62 @@ export default function StudentLayout({
 }: {
     children: React.ReactNode;
 })
+````
+
+## File: src/app/student/quizzes/[id]/page.tsx
+````typescript
+import { requireSession } from "@/lib/session";
+import prisma from "@/lib/prisma";
+import { notFound } from "next/navigation";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import {
+    ArrowLeft,
+    Clock,
+    BookOpen,
+    Calendar,
+    FileText,
+    AlertTriangle
+} from "lucide-react";
+import { QuizStartForm } from "@/components/student/quizzes/QuizStartForm";
+⋮----
+interface PageProps {
+    params: {
+        id: string;
+    };
+}
+````
+
+## File: src/app/student/quizzes/page.tsx
+````typescript
+import { requireSession } from "@/lib/session";
+import prisma from "@/lib/prisma";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import {
+    BookOpen,
+    Clock,
+    Calendar,
+    CheckCircle2,
+    PlayCircle,
+    AlertCircle,
+    BarChart3,
+    FileText
+} from "lucide-react";
+⋮----
+const getQuizStatus = (quiz: any) =>
+⋮----
+const getTimeRemaining = (dueDate: Date) =>
+const now = new Date();
+const due = new Date(dueDate);
+⋮----
+
+⋮----
+<span>Due:
 ````
 
 ## File: src/app/student/subjects/[id]/participants/page.tsx
@@ -2560,6 +2633,20 @@ interface UserAccordionItemProps {
 ⋮----
 e.stopPropagation();
 setOpen((prev)
+````
+
+## File: src/components/applicant/ApplicantNav.tsx
+````typescript
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import LogoutButton from "@/components/LogoutButton";
+import { cn } from "@/lib/utils";
+import {
+    User,
+    FileText,
+    Home,
+    Clock
+} from "lucide-react";
 ````
 
 ## File: src/components/Footer.tsx
@@ -3218,13 +3305,6 @@ onChange=
 // Helper functions for client component
 ````
 
-## File: src/components/student/dashboard/StudentNav.tsx
-````typescript
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import LogoutButton from "@/components/LogoutButton";
-````
-
 ## File: src/components/student/dashboard/subjects/SubjectContent.tsx
 ````typescript
 import Link from "next/link";
@@ -3322,6 +3402,31 @@ const getPriorityColor = (priority: string) =>
 const getStatusIcon = (status: string) =>
 ⋮----
 const getTypeIcon = (type: string) =>
+````
+
+## File: src/components/student/quizzes/QuizStartForm.tsx
+````typescript
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+    Clock,
+    FileText,
+    AlertTriangle,
+    CheckCircle2,
+    BookOpen
+} from "lucide-react";
+⋮----
+interface QuizStartFormProps {
+    quiz: any;
+    studentId: string;
+}
+⋮----
+export function QuizStartForm(
+⋮----
+const handleStartQuiz = async () =>
 ````
 
 ## File: src/components/teacher/assignments/AssignmentGradingForm.tsx
@@ -3875,28 +3980,17 @@ import prisma from "@/lib/prisma";
 export async function POST(req: Request)
 ````
 
-## File: src/app/applicant/portal/page.tsx
+## File: src/app/applicant/portal/layout.tsx
 ````typescript
-import { requireSession } from "@/lib/session";
-import prisma from "@/lib/prisma";
+import type { Metadata } from "next";
+import { ApplicantNav } from "@/components/applicant/ApplicantNav";
+import { Footer } from "@/components/Footer"
 ⋮----
-export default async function ApplicantPortalPage()
-````
-
-## File: src/app/login/page.tsx
-````typescript
-import React from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { LoginSchema, LoginInput } from "@/lib/validators";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
-⋮----
-const onSubmit = async (values: LoginInput) =>
+export default function ApplicantPortalLayout({
+    children,
+}: {
+    children: React.ReactNode;
+})
 ````
 
 ## File: src/app/parent/alerts/page.tsx
@@ -4080,25 +4174,6 @@ const getStudentStats = (student: StudentWithDetails) =>
 const getPerformanceColor = (grade: number) =>
 ⋮----
 const getAttendanceColor = (rate: number) =>
-````
-
-## File: src/app/signup/page.tsx
-````typescript
-import React from 'react';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useRouter } from "next/navigation";
-⋮----
-type SignupInput = z.infer<typeof SignupSchema>;
-⋮----
-const SignupPage = () =>
-⋮----
-const onSubmit = async (data: SignupInput) =>
 ````
 
 ## File: src/app/student/dashboard/classes/[id]/page.tsx
@@ -4518,6 +4593,14 @@ const getPerformanceColor = (grade: number) =>
 const getAttendanceColor = (rate: number) =>
 ````
 
+## File: src/components/student/dashboard/StudentNav.tsx
+````typescript
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import LogoutButton from "@/components/LogoutButton";
+import { FileText } from "lucide-react";
+````
+
 ## File: src/components/student/dashboard/subjects/SubjectGrades.tsx
 ````typescript
 import Link from "next/link";
@@ -4641,6 +4724,36 @@ import prisma from "@/lib/prisma";
 export async function GET()
 ````
 
+## File: src/app/applicant/portal/page.tsx
+````typescript
+import { requireSession } from "@/lib/session";
+import prisma from "@/lib/prisma";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+    User,
+    FileText,
+    Clock,
+    CheckCircle2,
+    XCircle,
+    AlertCircle,
+    Calendar,
+    Hash,
+    GraduationCap
+} from "lucide-react";
+import Link from "next/link";
+⋮----
+const getTypeBadge = (type: string) =>
+⋮----
+return (
+            <Badge variant={config.variant}>
+                {config.label}
+            </Badge>
+        );
+⋮----
+````
+
 ## File: src/app/layout.tsx
 ````typescript
 import type { Metadata } from "next";
@@ -4655,6 +4768,42 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>)
+````
+
+## File: src/app/login/page.tsx
+````typescript
+import React from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { LoginSchema, LoginInput } from "@/lib/validators";
+import { signIn } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import {
+    School,
+    Mail,
+    Lock,
+    Eye,
+    EyeOff,
+    BookOpen,
+    Users,
+    GraduationCap,
+    Sparkles,
+    User
+} from "lucide-react";
+import { useState } from "react";
+⋮----
+function redirectToDashboard(role: string)
+⋮----
+const onSubmit = async (values: LoginInput) =>
+⋮----
+const togglePasswordVisibility = () =>
+⋮----
+<form onSubmit=
 ````
 
 ## File: src/app/student/dashboard/assignments/page.tsx
@@ -4847,16 +4996,6 @@ export async function GET(request: NextRequest)
 export async function POST(request: NextRequest)
 ````
 
-## File: src/app/api/signup/route.ts
-````typescript
-import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
-import bcrypt from "bcrypt";
-import { generateHumanId } from "@/lib/idGenerator";
-⋮----
-export async function POST(req: Request)
-````
-
 ## File: src/app/globals.css
 ````css
 @theme inline {
@@ -4977,6 +5116,29 @@ interface DashboardData {
 export default async function ParentDashboardPage()
 ````
 
+## File: src/app/signup/page.tsx
+````typescript
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { School, Eye, EyeOff, GraduationCap } from "lucide-react";
+⋮----
+type SignupInput = z.infer<typeof SignupSchema>;
+⋮----
+const onSubmit = async (data: SignupInput) =>
+⋮----
+const togglePasswordVisibility = () =>
+⋮----
+const toggleConfirmPasswordVisibility = () =>
+````
+
 ## File: src/app/admin/sections/[id]/edit/page.tsx
 ````typescript
 import { useState, useEffect } from "react";
@@ -5074,11 +5236,96 @@ export async function PUT(request: Request,
 export async function DELETE(request: Request,
 ````
 
+## File: src/app/api/signup/route.ts
+````typescript
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { generateHumanId } from "@/lib/idGenerator";
+import bcryptjs from 'bcryptjs';
+⋮----
+export async function POST(req: Request)
+````
+
 ## File: src/app/page.tsx
 ````typescript
 import React from 'react'
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { School, Users, Target, Eye, BookOpen, Award } from "lucide-react";
 ⋮----
-const page = () =>
+const StudentPortalSVG = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2Z" />
+        <path d="M21 9V20C21 21.1 20.1 22 19 22H5C3.9 22 3 21.1 3 20V9C3 7.9 3.9 7 5 7H19C20.1 7 21 7.9 21 9Z" />
+        <path d="M7 9V7C7 5.3 8.3 4 10 4H14C15.7 4 17 5.3 17 7V9" />
+        <path d="M12 14V18" />
+        <path d="M9 16H15" />
+    </svg>
+);
+⋮----
+const TeacherDashboardSVG = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M3 9L12 2L21 9V20C21 21.1 20.1 22 19 22H5C3.9 22 3 21.1 3 20V9Z" />
+        <path d="M9 22V12H15V22" />
+        <path d="M8 12H16" />
+        <path d="M11 7H13" />
+        <path d="M12 7V5" />
+    </svg>
+);
+⋮----
+const ParentMonitoringSVG = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M17 21V19C17 17.9 16.1 17 15 17H9C7.9 17 7 17.9 7 19V21" />
+        <path d="M12 12C14.2 12 16 10.2 16 8C16 5.8 14.2 4 12 4C9.8 4 8 5.8 8 8C8 10.2 9.8 12 12 12Z" />
+        <path d="M22 12C22 17.5 17.5 22 12 22C6.5 22 2 17.5 2 12C2 6.5 6.5 2 12 2" />
+        <path d="M16 2C16 2 19 5 19 8C19 11 16 14 16 14" />
+        <path d="M8 2C8 2 5 5 5 8C5 11 8 14 8 14" />
+    </svg>
+);
+⋮----
+const AdminToolsSVG = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M12 15C13.7 15 15 13.7 15 12C15 10.3 13.7 9 12 9C10.3 9 9 10.3 9 12C9 13.7 10.3 15 12 15Z" />
+        <path d="M19.4 15C19.3 15.3 19.1 15.6 18.9 15.9L21 18C21.6 18.6 21.6 19.5 21 20.1C20.4 20.7 19.5 20.7 18.9 20.1L16.8 18C16.5 18.2 16.2 18.4 15.9 18.5C15.6 19.2 15 19.7 14.2 19.9L14 22H10L9.8 19.9C9 19.7 8.4 19.2 8.1 18.5C7.8 18.4 7.5 18.2 7.2 18L5.1 20.1C4.5 20.7 3.6 20.7 3 20.1C2.4 19.5 2.4 18.6 3 18L5.1 15.9C4.9 15.6 4.7 15.3 4.6 15C4.1 14.2 3.6 13.6 2.9 13.3L2 13V11L2.9 10.7C3.6 10.4 4.1 9.8 4.6 9C4.7 8.7 4.9 8.4 5.1 8.1L3 6C2.4 5.4 2.4 4.5 3 3.9C3.6 3.3 4.5 3.3 5.1 3.9L7.2 6C7.5 5.8 7.8 5.6 8.1 5.5C8.4 4.8 9 4.3 9.8 4.1L10 2H14L14.2 4.1C15 4.3 15.6 4.8 15.9 5.5C16.2 5.6 16.5 5.8 16.8 6L18.9 3.9C19.5 3.3 20.4 3.3 21 3.9C21.6 4.5 21.6 5.4 21 6L18.9 8.1C19.1 8.4 19.3 8.7 19.4 9C19.9 9.8 20.4 10.4 21.1 10.7L22 11V13L21.1 13.3C20.4 13.6 19.9 14.2 19.4 15Z" />
+    </svg>
+);
+⋮----
+const AssignmentSystemSVG = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z" />
+        <path d="M14 2V8H20" />
+        <path d="M16 13H8" />
+        <path d="M16 17H8" />
+        <path d="M10 9H8" />
+    </svg>
+);
+⋮----
+const AttendanceTrackingSVG = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22Z" />
+        <path d="M12 6V12L16 14" />
+        <path d="M7 12H12L15 15" />
+        <path d="M9 16H15" />
+    </svg>
+);
+⋮----
+const GradeManagementSVG = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M12 2L15 8L22 9L17 14L18 21L12 18L6 21L7 14L2 9L9 8L12 2Z" />
+        <path d="M12 6V12L14 14" />
+        <path d="M8 12H12L16 16" />
+    </svg>
+);
+⋮----
+const CommunicationHubSVG = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M21 15C21 15.5 20.6 16 20 16H13L9 20V16H4C3.4 16 3 15.5 3 15V4C3 3.5 3.4 3 4 3H20C20.6 3 21 3.5 21 4V15Z" />
+        <path d="M7 9H17" />
+        <path d="M7 12H13" />
+        <path d="M7 7H17" />
+    </svg>
+);
 ````
 
 ## File: src/app/teacher/dashboard/page.tsx
@@ -5606,6 +5853,7 @@ model AnnouncementView {
     "@vercel/blob": "^2.0.0",
     "@vercel/speed-insights": "^1.2.0",
     "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.24",
