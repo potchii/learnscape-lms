@@ -4,12 +4,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import LogoutButton from "@/components/LogoutButton";
+import { FileText } from "lucide-react";
 
 export function StudentNav() {
     const pathname = usePathname();
 
     const navItems = [
         { href: "/student", label: "Home", icon: "🏠" },
+        { href: "/student/quizzes", label: "Quizzes", icon: "📚" },
         { href: "/student/dashboard", label: "Dashboard", icon: "📊" },
         { href: "/student/subjects", label: "My Subjects", icon: "📚" },
     ];
@@ -30,8 +32,8 @@ export function StudentNav() {
                                     key={item.href}
                                     href={item.href}
                                     className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${pathname === item.href
-                                            ? "bg-blue-100 text-blue-700"
-                                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                                        ? "bg-blue-100 text-blue-700"
+                                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                                         }`}
                                 >
                                     <span className="mr-2">{item.icon}</span>
@@ -56,8 +58,8 @@ export function StudentNav() {
                             key={item.href}
                             href={item.href}
                             className={`flex items-center px-3 py-2 text-base font-medium rounded-md transition-colors ${pathname === item.href
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                                ? "bg-blue-100 text-blue-700"
+                                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                                 }`}
                         >
                             <span className="mr-3">{item.icon}</span>
